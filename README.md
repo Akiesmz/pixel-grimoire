@@ -1,15 +1,27 @@
-# 咒语旅团：像素法典 (Spell Brigade: Pixel Grimoire)
+# 像素法典：星界魔潮 (Pixel Grimoire)
 
-一款像素风类幸存者（Survivors-like）网页肉鸽游戏，技能与特效基于 [patch-gg/pixelfx](https://github.com/patch-gg/pixelfx) 纯代码程序化像素特效库打造。
+一款像素风类幸存者（Survivors-like）网页肉鸽游戏，技能与特效基于 [patch-gg/pixelfx](https://github.com/patch-gg/pixelfx) 纯代码程序化像素特效库打造，零外部图片/音频素材，支持一键打包为单个可离线运行的 `index.html`。
+
+## 实机游玩截图
+
+### 实战战斗与 `pixelfx` 法术特效
+![实战战斗画面](docs/screenshots/combat.png)
+
+### 巫师选择界面
+![巫师选择界面](docs/screenshots/select.png)
+
+### 局外永久天赋树
+![永久天赋树](docs/screenshots/talents.png)
 
 ## 核心特色
 
 - **12 种 `pixelfx` 程序化像素法术**：炎爆火球、寒冰穿刺、霜冻新星、落雷天罚、奥术星轨、陨星天降、虚空黑洞、圣光裁决、火焰龙卷、链式闪电、剧毒瘴云、奥术光束。
 - **元素附魔实时换色**：升级时可为法术注入烈焰、寒霜、雷霆、暗影元素，赋予额外机制并实时重绘 `pixelfx` 调色板。
-- **4 名可选巫师 & 局外永久天赋树**：战斗获取星尘并自动存档至 `localStorage`，支持 8 项多级永久天赋与一键重置。
+- **4 名可选巫师 & 局外永久天赋树**：战斗获取星尘并自动存档至 `localStorage`，支持 8 项多级永久天赋与一键重置全额返还。
 - **升级选卡刷新机制**：每次升级/开宝箱自带免费刷新次数（快捷键 `R`），可通过天赋与遗物增加。
+- **自动拾取与成长构筑**：经验球进入范围后自动加速吸附，提供经验获取效率、拾取范围、刷新次数等构筑选项。
 - **局内随机任务 & 多阶段 Boss**：充能符文法阵、净化虚空裂隙、收集星辰碎片，以及 3 个阶段 Boss 与无尽模式。
-- **单文件离线打包**：支持通过 `vite-plugin-singlefile` 直接打包为独立的单个 `dist/index.html`。
+- **单文件离线打包**：通过 `vite-plugin-singlefile` 直接打包为独立的单个 `dist/index.html`。
 
 ## 本地运行与打包
 

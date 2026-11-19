@@ -109,7 +109,7 @@ export interface MetaSaveData {
   ranks: Record<TalentId, number>;
 }
 
-const STORAGE_KEY = 'spell_brigade_pixelfx_meta_v1';
+const STORAGE_KEY = 'pixel_grimoire_meta_v1';
 
 function defaultRanks(): Record<TalentId, number> {
   return {

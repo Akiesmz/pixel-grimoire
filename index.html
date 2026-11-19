@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>咒语旅团：像素法典 · Spell Brigade</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="stage-wrap">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- In-game HUD -->
+        <div id="hud" class="hud hidden">
+          <div class="xp-bar-wrap">
+            <div id="xp-bar-fill" class="xp-bar-fill"></div>
+            <span id="hud-level" class="xp-level-label">Lv.1</span>
+          </div>
+
+          <div class="hud-top">
+            <div class="hud-left">
+              <div class="stat-bar hp-bar">
+                <div id="hp-bar-fill" class="stat-bar-fill hp-fill"></div>
+                <span id="hud-hp-text" class="stat-bar-text">100 / 100</span>
+              </div>
+              <div class="stat-bar dash-bar">
+                <div id="dash-bar-fill" class="stat-bar-fill dash-fill"></div>
+                <span class="stat-bar-text">闪现 [Space]</span>
+              </div>
+              <div class="hud-controls">
+                <button id="btn-aim" class="mini-btn" title="切换瞄准模式 (M)">✨ 自动瞄准</button>
+                <button id="btn-mute" class="mini-btn" title="开关音效">🔊 音效</button>
+                <button id="btn-pause" class="mini-btn" title="暂停 (Esc)">⏸ 暂停</button>
+              </div>
+            </div>
+
+            <div class="hud-center">
+              <div class="timer-pill">
+                <span id="hud-timer" class="timer-val">00:00</span>
+                <span class="timer-sep">|</span>
+                <span id="hud-wave">波次 1</span>
+                <span class="timer-sep">|</span>
+                <span id="hud-kills">☠ 0</span>
+                <span class="timer-sep">|</span>
+                <span id="hud-dust" class="dust-val">✨ 0</span>
+              </div>
+
+              <div id="boss-bar-wrap" class="boss-bar-wrap hidden">
+                <div id="boss-name" class="boss-name">首领</div>
+                <div class="boss-track">
+                  <div id="boss-fill" class="boss-fill"></div>
+                </div>
+              </div>
+
+              <div id="banner" class="banner hidden"></div>
+            </div>
+
+            <div class="hud-right">
+              <div id="objective-card" class="objective-card hidden">
+                <div id="obj-title" class="obj-title">任务</div>
+                <div id="obj-desc" class="obj-desc">描述</div>
+                <div class="obj-track">
+                  <div id="obj-fill" class="obj-fill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-bottom">
+            <div id="spell-bar" class="spell-bar"></div>
+          </div>
+        </div>
+
+        <!-- Wizard Select Overlay -->
+        <div id="modal-select" class="overlay">
+          <div class="panel select-panel">
+            <div class="title-badge">PIXELFX POWERED · SURVIVORS-LIKE</div>
+            <h1 class="game-title">咒语旅团：像素法典</h1>
+            <p class="game-subtitle">
+              选择你的巫师，构筑元素法术弹幕，在无尽魔潮中存活并击败终焉首领
+            </p>
+
+            <div class="select-meta-bar">
+              <div class="dust-pill">✨ 星尘余额：<b id="select-dust">0</b></div>
+              <button id="btn-open-talents" class="gold-btn">🌟 永久天赋树</button>
+            </div>
+
+            <div id="wizard-grid" class="wizard-grid"></div>
+
+            <div class="controls-hint">
+              <span><b>WASD / 方向键</b> 移动</span>
+              <span><b>Space / Shift</b> 闪现无敌</span>
+              <span><b>M</b> 自动/手动瞄准</span>
+              <span><b>1 / 2 / 3</b> 升级速选</span>
+              <span><b>R</b> 刷新选卡</span>
+              <span><b>Esc</b> 暂停</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permanent Talent Tree Overlay -->
+        <div id="modal-talents" class="overlay hidden">
+          <div class="panel talents-panel">
+            <div class="talents-header">
+              <div>
+                <h2 class="modal-title" style="margin:0; text-align:left;">🌟 永久天赋树</h2>
+                <div class="talents-sub">使用战斗获取的星尘永久强化所有巫师，自动本地存档</div>
+              </div>
+              <div class="dust-pill">✨ 可用星尘：<b id="talents-dust">0</b></div>
+            </div>
+            <div id="talents-grid" class="talents-grid"></div>
+            <div class="modal-actions" style="margin-top:16px;">
+              <button id="btn-reset-talents" class="secondary-btn">🔄 重置天赋（全额返还）</button>
+              <button id="btn-close-talents" class="primary-btn">返回</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level Up / Chest Overlay -->
+        <div id="modal-levelup" class="overlay hidden">
+          <div class="panel levelup-panel">
+            <h2 id="levelup-title" class="modal-title">✨ 升级！选择一项强化</h2>
+            <div id="upgrade-grid" class="upgrade-grid"></div>
+            <div class="levelup-footer">
+              <button id="btn-reroll" class="gold-btn">🔄 刷新选项 (剩余 1 次) [R]</button>
+              <div class="levelup-tip">点击卡牌或按键盘 1 / 2 / 3 快速选择</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="modal-pause" class="overlay hidden">
+          <div class="panel compact-panel">
+            <h2 class="modal-title">⏸ 游戏已暂停</h2>
+            <div id="pause-stats" class="stats-grid"></div>
+            <div class="modal-actions">
+              <button id="btn-resume" class="primary-btn">继续战斗</button>
+              <button id="btn-quit" class="secondary-btn">返回选人</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Over / Victory Overlay -->
+        <div id="modal-end" class="overlay hidden">
+          <div class="panel compact-panel">
+            <h2 id="end-title" class="modal-title">战败</h2>
+            <p id="end-subtitle" class="end-subtitle"></p>
+            <div id="end-stats" class="stats-grid"></div>
+            <div class="modal-actions">
+              <button id="btn-endless" class="gold-btn hidden">♾️ 继续无尽模式</button>
+              <button id="btn-end-talents" class="gold-btn">🌟 永久天赋树</button>
+              <button id="btn-restart" class="primary-btn">再来一局</button>
+              <button id="btn-end-select" class="secondary-btn">更换巫师</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

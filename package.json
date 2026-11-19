@@ -1,0 +1,19 @@
+{
+  "name": "spell-brigade-pixelfx",
+  "version": "1.0.0",
+  "description": "A Spell Brigade inspired pixel-art survivors web game powered by patch-gg/pixelfx",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pixelfx": "github:patch-gg/pixelfx"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}

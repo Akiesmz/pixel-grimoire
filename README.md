@@ -1,6 +1,6 @@
 # 咒语旅团：像素法典 (Spell Brigade: Pixel Grimoire)
 
-一款参考《咒语旅团》（*The Spell Brigade*）玩法制作的像素风类幸存者（Survivors-like）网页肉鸽游戏，技能与特效基于 [patch-gg/pixelfx](https://github.com/patch-gg/pixelfx) 纯代码程序化像素特效库打造。
+一款像素风类幸存者（Survivors-like）网页肉鸽游戏，技能与特效基于 [patch-gg/pixelfx](https://github.com/patch-gg/pixelfx) 纯代码程序化像素特效库打造。
 
 ## 核心特色
 

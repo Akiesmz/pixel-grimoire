@@ -804,3 +804,317 @@ body,
   filter: none;
   transform: none;
 }
+
+/* ================= Mobile & Touch Controls ================= */
+html,
+body,
+#app,
+.stage-wrap,
+#game-canvas {
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stage-wrap {
+  width: 100vw;
+  height: 100dvh;
+}
+
+#game-canvas {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100dvh, calc(100vw * 9 / 16));
+}
+
+.touch-controls {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .touch-controls {
+    display: block;
+  }
+}
+
+body.is-touch .touch-controls {
+  display: block;
+}
+
+/* Left half touch zone for translucent virtual joystick */
+.joystick-zone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 48%;
+  height: 56%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.joystick-base {
+  position: absolute;
+  left: max(22px, env(safe-area-inset-left, 22px));
+  bottom: max(24px, env(safe-area-inset-bottom, 24px));
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(126, 104, 214, 0.16) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 18px rgba(126, 104, 214, 0.22);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.68;
+  transition: opacity 0.12s ease;
+}
+
+.joystick-base.active {
+  opacity: 0.95;
+  border-color: rgba(255, 209, 71, 0.65);
+}
+
+.joystick-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.72), rgba(155, 130, 255, 0.42));
+  border: 2px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  transform: translate(0px, 0px);
+  will-change: transform;
+}
+
+/* Right-bottom translucent Blink Dash button */
+.touch-dash-btn {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right, 24px));
+  bottom: max(32px, env(safe-area-inset-bottom, 32px));
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(92, 214, 255, 0.28) 0%, rgba(35, 120, 184, 0.36) 100%);
+  border: 2px solid rgba(150, 232, 255, 0.6);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: auto;
+  touch-action: none;
+  backdrop-filter: blur(2px);
+  opacity: 0.85;
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+.touch-dash-btn:active {
+  transform: scale(0.92);
+}
+
+.touch-dash-btn.cooling {
+  opacity: 0.38;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.touch-dash-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.touch-dash-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* Responsive HUD & Modals for Mobile (Portrait & Landscape) */
+@media (max-width: 900px), (max-height: 540px) {
+  .overlay {
+    padding: 10px;
+    align-items: center;
+  }
+
+  .panel {
+    padding: 14px 14px;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .game-title {
+    font-size: 22px;
+  }
+
+  .game-subtitle {
+    font-size: 12px;
+    margin: 4px 0 12px;
+  }
+
+  .wizard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .wizard-card {
+    padding: 10px;
+  }
+
+  .wiz-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .wiz-name {
+    font-size: 13px;
+  }
+
+  .wiz-desc {
+    font-size: 11px;
+  }
+
+  .controls-hint {
+    display: none;
+  }
+
+  .hud-top {
+    grid-template-columns: minmax(120px, 160px) 1fr minmax(100px, 160px);
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .stat-bar {
+    height: 16px;
+  }
+
+  .dash-bar {
+    height: 13px;
+  }
+
+  .stat-bar-text {
+    font-size: 10px;
+  }
+
+  .mini-btn {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+
+  .timer-pill {
+    padding: 3px 10px;
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .timer-val {
+    font-size: 12px;
+  }
+
+  .objective-card {
+    width: 155px;
+    padding: 6px 8px;
+  }
+
+  .obj-title {
+    font-size: 10.5px;
+  }
+
+  .obj-desc {
+    font-size: 10px;
+  }
+
+  .banner {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .hud-bottom {
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  }
+
+  .spell-bar {
+    gap: 5px;
+    padding: 4px 6px;
+  }
+
+  .spell-slot {
+    width: 36px;
+    height: 36px;
+    font-size: 17px;
+  }
+
+  .spell-lv {
+    font-size: 9px;
+  }
+
+  .upgrade-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .upgrade-card {
+    padding: 10px;
+    gap: 5px;
+  }
+
+  .upg-icon {
+    font-size: 22px;
+  }
+
+  .upg-title {
+    font-size: 13px;
+  }
+
+  .upg-desc {
+    font-size: 11px;
+  }
+
+  .upg-key,
+  .levelup-tip {
+    display: none;
+  }
+
+  .talents-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Portrait phone tweaks */
+@media (max-width: 560px) {
+  .hud-top {
+    grid-template-columns: 1fr auto;
+  }
+
+  .hud-right {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .joystick-base {
+    width: 104px;
+    height: 104px;
+  }
+
+  .joystick-knob {
+    width: 42px;
+    height: 42px;
+  }
+
+  .touch-dash-btn {
+    width: 68px;
+    height: 68px;
+  }
+}

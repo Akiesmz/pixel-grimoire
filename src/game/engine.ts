@@ -91,6 +91,8 @@ export class GameEngine {
   private lastTime = 0;
 
   private keys = new Set<string>();
+  private touchMoveX = 0;
+  private touchMoveY = 0;
   private mouseScreenX = VIEW_W / 2;
   private mouseScreenY = VIEW_H / 2;
   private manualAim = false;
@@ -231,6 +233,8 @@ export class GameEngine {
 
     window.addEventListener('blur', () => {
       this.keys.clear();
+      this.touchMoveX = 0;
+      this.touchMoveY = 0;
     });
 
     this.canvas.addEventListener('mousemove', (e) => {
@@ -404,22 +408,33 @@ export class GameEngine {
     this.rafId = requestAnimationFrame(tick);
   }
 
+  public setTouchMove(x: number, y: number): void {
+    this.touchMoveX = Math.max(-1, Math.min(1, x));
+    this.touchMoveY = Math.max(-1, Math.min(1, y));
+  }
+
+  public triggerDash(): void {
+    if (this.phase === 'playing') {
+      this.tryDash();
+    }
+  }
+
   private tryDash(): void {
     const p = this.player;
     if (p.dashCooldown > 0 || p.dashTimer > 0) return;
 
-    let dx = 0;
-    let dy = 0;
+    let dx = this.touchMoveX;
+    let dy = this.touchMoveY;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) dy -= 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) dy += 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) dx -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) dx += 1;
 
-    if (dx === 0 && dy === 0) {
+    const len = Math.hypot(dx, dy);
+    if (len < 0.08) {
       dx = Math.cos(p.aimAngle);
       dy = Math.sin(p.aimAngle);
     } else {
-      const len = Math.hypot(dx, dy);
       dx /= len;
       dy /= len;
     }
@@ -486,23 +501,24 @@ export class GameEngine {
       return;
     }
 
-    let ix = 0;
-    let iy = 0;
+    let ix = this.touchMoveX;
+    let iy = this.touchMoveY;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) iy -= 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) iy += 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) ix -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) ix += 1;
 
-    if (ix !== 0 || iy !== 0) {
-      const len = Math.hypot(ix, iy);
-      ix /= len;
-      iy /= len;
-      p.vx = ix * p.speed;
-      p.vy = iy * p.speed;
+    const inputLen = Math.hypot(ix, iy);
+    if (inputLen > 0.06) {
+      const clampedMag = Math.min(1, inputLen);
+      const nx = ix / inputLen;
+      const ny = iy / inputLen;
+      p.vx = nx * p.speed * clampedMag;
+      p.vy = ny * p.speed * clampedMag;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.animTime += dt;
-      if (Math.abs(ix) > 0.1) p.facing = ix > 0 ? 1 : -1;
+      if (Math.abs(nx) > 0.1) p.facing = nx > 0 ? 1 : -1;
     } else {
       p.vx = 0;
       p.vy = 0;
@@ -1711,6 +1727,8 @@ export class GameEngine {
 
   private openUpgradeModal(title: string): void {
     this.phase = 'levelup';
+    this.touchMoveX = 0;
+    this.touchMoveY = 0;
     this.currentUpgradeTitle = title;
     this.currentRerollsLeft = this.player.rerollsPerLevelUp;
     const choices = this.generateUpgradeChoices();

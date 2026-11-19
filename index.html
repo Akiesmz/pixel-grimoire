@@ -2,7 +2,12 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>像素法典：星界魔潮 · Pixel Grimoire</title>
   </head>
   <body>
@@ -68,6 +73,19 @@
 
           <div class="hud-bottom">
             <div id="spell-bar" class="spell-bar"></div>
+          </div>
+
+          <!-- Mobile Touch Controls (Translucent Joystick + Dash Button) -->
+          <div id="touch-controls" class="touch-controls">
+            <div id="joystick-zone" class="joystick-zone">
+              <div id="joystick-base" class="joystick-base">
+                <div id="joystick-knob" class="joystick-knob"></div>
+              </div>
+            </div>
+            <button id="btn-touch-dash" class="touch-dash-btn" type="button" aria-label="闪现">
+              <span class="touch-dash-icon">⚡</span>
+              <span class="touch-dash-label">闪现</span>
+            </button>
           </div>
         </div>
 

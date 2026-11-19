@@ -60,6 +60,11 @@ const endTitle = document.getElementById('end-title')!;
 const endSubtitle = document.getElementById('end-subtitle')!;
 const endStats = document.getElementById('end-stats')!;
 
+const joystickZone = document.getElementById('joystick-zone')!;
+const joystickBase = document.getElementById('joystick-base')!;
+const joystickKnob = document.getElementById('joystick-knob')!;
+const btnTouchDash = document.getElementById('btn-touch-dash') as HTMLButtonElement;
+
 let currentWizardId: WizardId = 'pyro';
 let currentChoices: UpgradeChoice[] = [];
 let talentsModalOpen = false;
@@ -202,6 +207,9 @@ function renderStatsGrid(target: HTMLElement, snap: HudSnapshot): void {
 }
 
 function renderHud(snap: HudSnapshot): void {
+  if (snap.phase !== 'playing' && joystickTouchId !== null) {
+    resetJoystick();
+  }
   selectDustEl.textContent = String(engine.getMetaSave().dust);
   modalSelect.classList.toggle('hidden', snap.phase !== 'select' || talentsModalOpen);
   modalLevelup.classList.toggle('hidden', snap.phase !== 'levelup');
@@ -220,6 +228,7 @@ function renderHud(snap: HudSnapshot): void {
   hudHpText.textContent = `${snap.hp} / ${snap.maxHp}`;
 
   dashBarFill.style.width = `${(snap.dashReadyRatio * 100).toFixed(0)}%`;
+  btnTouchDash.classList.toggle('cooling', snap.dashReadyRatio < 1);
 
   hudTimer.textContent = formatTime(snap.elapsed);
   hudWave.textContent = snap.endless ? `无尽 波次 ${snap.wave}` : `波次 ${snap.wave}`;
@@ -303,4 +312,115 @@ btnCloseTalents.addEventListener('click', closeTalentsModal);
 btnResetTalents.addEventListener('click', () => {
   engine.resetAllTalents();
   renderTalentTree();
+});
+
+// ================= Mobile Translucent Virtual Joystick & Touch Dash =================
+window.addEventListener(
+  'touchstart',
+  () => {
+    document.body.classList.add('is-touch');
+  },
+  { once: true, passive: true }
+);
+
+let joystickTouchId: number | null = null;
+let joyCenterX = 0;
+let joyCenterY = 0;
+const JOY_MAX_RADIUS = 42;
+
+function resetJoystick(): void {
+  joystickTouchId = null;
+  joystickBase.classList.remove('active');
+  joystickBase.style.left = '';
+  joystickBase.style.top = '';
+  joystickBase.style.bottom = '';
+  joystickKnob.style.transform = 'translate(0px, 0px)';
+  engine.setTouchMove(0, 0);
+}
+
+function updateJoystickFromPoint(clientX: number, clientY: number): void {
+  const dx = clientX - joyCenterX;
+  const dy = clientY - joyCenterY;
+  const dist = Math.hypot(dx, dy);
+  const clamped = Math.min(JOY_MAX_RADIUS, dist);
+  const angle = Math.atan2(dy, dx);
+  const kx = dist > 0.1 ? Math.cos(angle) * clamped : 0;
+  const ky = dist > 0.1 ? Math.sin(angle) * clamped : 0;
+
+  joystickKnob.style.transform = `translate(${kx.toFixed(1)}px, ${ky.toFixed(1)}px)`;
+  engine.setTouchMove(kx / JOY_MAX_RADIUS, ky / JOY_MAX_RADIUS);
+}
+
+joystickZone.addEventListener(
+  'touchstart',
+  (e) => {
+    if (engine.phase !== 'playing') return;
+    if (joystickTouchId !== null) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    e.preventDefault();
+
+    joystickTouchId = touch.identifier;
+    const zoneRect = joystickZone.getBoundingClientRect();
+    const baseW = joystickBase.offsetWidth || 112;
+    const baseH = joystickBase.offsetHeight || 112;
+    const halfW = baseW / 2;
+    const halfH = baseH / 2;
+
+    // Place translucent joystick centered under thumb, clamped inside left touch zone
+    const relX = Math.max(halfW + 6, Math.min(zoneRect.width - halfW - 6, touch.clientX - zoneRect.left));
+    const relY = Math.max(halfH + 6, Math.min(zoneRect.height - halfH - 6, touch.clientY - zoneRect.top));
+
+    joystickBase.style.left = `${relX - halfW}px`;
+    joystickBase.style.top = `${relY - halfH}px`;
+    joystickBase.style.bottom = 'auto';
+    joystickBase.classList.add('active');
+
+    joyCenterX = zoneRect.left + relX;
+    joyCenterY = zoneRect.top + relY;
+    updateJoystickFromPoint(touch.clientX, touch.clientY);
+  },
+  { passive: false }
+);
+
+joystickZone.addEventListener(
+  'touchmove',
+  (e) => {
+    if (joystickTouchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === joystickTouchId) {
+        e.preventDefault();
+        updateJoystickFromPoint(touch.clientX, touch.clientY);
+        break;
+      }
+    }
+  },
+  { passive: false }
+);
+
+function handleJoystickEnd(e: TouchEvent): void {
+  if (joystickTouchId === null) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joystickTouchId) {
+      resetJoystick();
+      break;
+    }
+  }
+}
+
+joystickZone.addEventListener('touchend', handleJoystickEnd, { passive: true });
+joystickZone.addEventListener('touchcancel', handleJoystickEnd, { passive: true });
+
+btnTouchDash.addEventListener(
+  'touchstart',
+  (e) => {
+    e.preventDefault();
+    engine.triggerDash();
+  },
+  { passive: false }
+);
+
+btnTouchDash.addEventListener('click', () => {
+  engine.triggerDash();
 });

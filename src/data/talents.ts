@@ -6,7 +6,8 @@ export type TalentId =
   | 'wisdom'
   | 'reroll'
   | 'swiftness'
-  | 'greed';
+  | 'greed'
+  | 'evasion';
 
 export interface TalentDef {
   id: TalentId;
@@ -100,6 +101,16 @@ export const TALENTS: TalentDef[] = [
     baseCost: 30,
     costStep: 30,
   },
+  {
+    id: 'evasion',
+    name: '幻影闪避',
+    icon: '💨',
+    desc: '永久提升巫师的闪避率，触发闪避时完全免疫该次伤害。',
+    perRankLabel: '闪避率 +4% / 级',
+    maxRank: 5,
+    baseCost: 30,
+    costStep: 25,
+  },
 ];
 
 export interface MetaSaveData {
@@ -121,6 +132,7 @@ function defaultRanks(): Record<TalentId, number> {
     reroll: 0,
     swiftness: 0,
     greed: 0,
+    evasion: 0,
   };
 }
 
@@ -190,6 +202,7 @@ export interface MetaBonuses {
   extraRerolls: number;
   speedMult: number;
   dustMult: number;
+  dodgeBonus: number;
 }
 
 export function getMetaBonuses(save: MetaSaveData): MetaBonuses {
@@ -203,5 +216,6 @@ export function getMetaBonuses(save: MetaSaveData): MetaBonuses {
     extraRerolls: r.reroll ?? 0,
     speedMult: 1 + (r.swiftness ?? 0) * 0.06,
     dustMult: 1 + (r.greed ?? 0) * 0.2,
+    dodgeBonus: (r.evasion ?? 0) * 0.04,
   };
 }

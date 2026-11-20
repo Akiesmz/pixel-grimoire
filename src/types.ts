@@ -89,6 +89,7 @@ export interface PlayerState {
   areaMult: number;
   critChance: number;
   critMult: number;
+  dodgeChance: number;
   pickupRadius: number;
   xpMult: number;
   dustMult: number;

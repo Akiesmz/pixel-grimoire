@@ -60,6 +60,7 @@ export interface HudSnapshot {
     cooldownPct: number;
     areaPct: number;
     critPct: number;
+    dodgePct: number;
     speed: number;
     xpPct: number;
     pickupRadius: number;
@@ -271,6 +272,7 @@ export class GameEngine {
       areaMult: s.areaMult,
       critChance: s.critChance,
       critMult: 1.75,
+      dodgeChance: Math.min(0.65, 0.05 + meta.dodgeBonus),
       pickupRadius: Math.round(s.pickupRadius * meta.pickupMult),
       xpMult: s.xpMult + meta.xpBonus,
       dustMult: meta.dustMult,
@@ -559,15 +561,15 @@ export class GameEngine {
     }
 
     const levelFactor = Math.max(0, this.player.level - 1);
-    const maxEnemies = Math.min(200, 28 + Math.floor(t * 0.28) + levelFactor * 6);
+    const maxEnemies = Math.min(115, 20 + Math.floor(t * 0.18) + levelFactor * 3);
     if (this.enemies.length >= maxEnemies) return;
 
-    const interval = Math.max(0.16, 1.0 - t * 0.0014 - levelFactor * 0.025);
+    const interval = Math.max(0.32, 1.25 - t * 0.0012 - levelFactor * 0.018);
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0) return;
     this.spawnTimer = interval;
 
-    const batchSize = 1 + Math.floor(t / 65) + Math.floor(levelFactor / 3);
+    const batchSize = 1 + Math.floor(t / 95) + Math.floor(levelFactor / 5);
     for (let i = 0; i < batchSize; i++) {
       this.spawnRegularEnemy(t);
     }
@@ -645,7 +647,7 @@ export class GameEngine {
     const cfg = baseTable[kind];
     const eliteMult = isElite && !isBoss ? 2.4 : 1;
     const lv = Math.max(1, this.player.level);
-    const levelHpScale = 1 + (lv - 1) * 0.16 + Math.pow(Math.max(0, lv - 5), 1.3) * 0.04;
+    const levelHpScale = 1 + (lv - 1) * 0.12 + Math.pow(Math.max(0, lv - 6), 1.25) * 0.03;
     const maxHp = Math.round(cfg.hp * timeScale * levelHpScale * eliteMult);
 
     const enemy: Enemy = {
@@ -1657,6 +1659,14 @@ export class GameEngine {
     const p = this.player;
     if (p.invulnTimer > 0) return;
 
+    if (Math.random() < p.dodgeChance) {
+      p.invulnTimer = 0.38;
+      sound.playCast(820);
+      this.fx.spawnWorld('hit_spark', p.x, p.y - 4, { element: 'frost', priority: 2 });
+      this.spawnText(p.x, p.y - 18, '闪避!', '#7be8ff', true);
+      return;
+    }
+
     p.hp = Math.max(0, p.hp - amount);
     p.invulnTimer = 0.65;
     this.addShake(3.5, 0.22);
@@ -1816,6 +1826,17 @@ export class GameEngine {
           },
         },
         {
+          sub: `${def.name} Lv.${s.level + 1} · 灵动`,
+          desc: `伤害 +20%，冷却 -10%，闪避率 +4%`,
+          rarity: 'rare',
+          apply: () => {
+            s.level++;
+            s.damageBonus += 0.2;
+            s.cooldownBonus += 0.1;
+            p.dodgeChance = Math.min(0.65, p.dodgeChance + 0.04);
+          },
+        },
+        {
           sub: `${def.name} Lv.${s.level + 1}`,
           desc:
             s.id === 'frost_nova'
@@ -1843,7 +1864,8 @@ export class GameEngine {
         },
       ];
 
-      const pick = variants[Math.random() < 0.45 ? 1 : 0];
+      const rollV = Math.random();
+      const pick = variants[rollV < 0.35 ? 2 : rollV < 0.68 ? 1 : 0];
       pool.push({
         id: `upg_${s.id}_${s.level}`,
         kind: 'upgrade_spell',
@@ -2007,6 +2029,22 @@ export class GameEngine {
           p.rerollsPerLevelUp += 1;
           p.critChance = Math.min(0.85, p.critChance + 0.06);
           p.relics.dice = (p.relics.dice ?? 0) + 1;
+        },
+      },
+      {
+        id: 'relic_cloak',
+        kind: 'relic',
+        title: '幻影披风',
+        subtitle: '全局遗物 · 闪避',
+        desc: '闪避率 +8%（最高 65%），移动速度 +8%',
+        icon: '💨',
+        rarity: 'rare',
+        badge: '闪避+8%',
+        accentColor: '#7be8ff',
+        apply: () => {
+          p.dodgeChance = Math.min(0.65, p.dodgeChance + 0.08);
+          p.speed = Math.round(p.speed * 1.08);
+          p.relics.cloak = (p.relics.cloak ?? 0) + 1;
         },
       },
     ];
@@ -2317,6 +2355,7 @@ export class GameEngine {
         cooldownPct: Math.round((1 - p.cooldownMult) * 100),
         areaPct: Math.round(p.areaMult * 100),
         critPct: Math.round(p.critChance * 100),
+        dodgePct: Math.round(p.dodgeChance * 100),
         speed: Math.round(p.speed),
         xpPct: Math.round(p.xpMult * 100),
         pickupRadius: Math.round(p.pickupRadius),

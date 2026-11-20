@@ -204,7 +204,7 @@ function renderStatsGrid(target: HTMLElement, snap: HudSnapshot): void {
     <div class="stat-box"><div class="stat-box-label">巫师 / 等级</div><div class="stat-box-val">${snap.wizardName} · Lv.${snap.level}</div></div>
     <div class="stat-box"><div class="stat-box-label">存活 / 击杀 / 星尘</div><div class="stat-box-val">${formatTime(snap.elapsed)} · ${snap.kills} · ✨${snap.runDust}</div></div>
     <div class="stat-box"><div class="stat-box-label">法术伤害 / 暴击</div><div class="stat-box-val">${snap.stats.damagePct}% · ${snap.stats.critPct}%</div></div>
-    <div class="stat-box"><div class="stat-box-label">冷却缩减 / 范围</div><div class="stat-box-val">-${snap.stats.cooldownPct}% · ${snap.stats.areaPct}%</div></div>
+    <div class="stat-box"><div class="stat-box-label">冷却缩减 / 闪避率</div><div class="stat-box-val">-${snap.stats.cooldownPct}% · ${snap.stats.dodgePct}%</div></div>
     <div class="stat-box"><div class="stat-box-label">经验获取效率</div><div class="stat-box-val">${snap.stats.xpPct}%</div></div>
     <div class="stat-box"><div class="stat-box-label">自动拾取 / 刷新</div><div class="stat-box-val">${snap.stats.pickupRadius}px · ${snap.stats.rerollsPerLevelUp}次</div></div>
   `;

@@ -15,7 +15,7 @@ export const WIZARDS: WizardDef[] = [
     baseStats: {
       maxHp: 110,
       speed: 74,
-      damageMult: 1.05,
+      damageMult: 1.2,
       cooldownMult: 1.0,
       areaMult: 1.12,
       critChance: 0.08,
@@ -39,7 +39,7 @@ export const WIZARDS: WizardDef[] = [
     baseStats: {
       maxHp: 115,
       speed: 72,
-      damageMult: 1.0,
+      damageMult: 1.15,
       cooldownMult: 1.0,
       areaMult: 1.0,
       critChance: 0.2,
@@ -63,7 +63,7 @@ export const WIZARDS: WizardDef[] = [
     baseStats: {
       maxHp: 100,
       speed: 85,
-      damageMult: 1.0,
+      damageMult: 1.15,
       cooldownMult: 0.88,
       areaMult: 1.0,
       critChance: 0.12,
@@ -87,7 +87,7 @@ export const WIZARDS: WizardDef[] = [
     baseStats: {
       maxHp: 105,
       speed: 76,
-      damageMult: 1.0,
+      damageMult: 1.15,
       cooldownMult: 0.96,
       areaMult: 1.05,
       critChance: 0.1,

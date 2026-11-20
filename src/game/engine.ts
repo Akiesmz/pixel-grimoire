@@ -263,7 +263,7 @@ export class GameEngine {
       hp: maxHp,
       maxHp,
       xp: 0,
-      xpToNext: 22,
+      xpToNext: 34,
       level: 1,
       speed: Math.round(s.speed * meta.speedMult),
       damageMult: s.damageMult + meta.damageBonus,
@@ -558,15 +558,16 @@ export class GameEngine {
       this.spawnBoss('boss_void', '虚空大君 · 终焉法皇');
     }
 
-    const maxEnemies = Math.min(140, 26 + Math.floor(t * 0.25));
+    const levelFactor = Math.max(0, this.player.level - 1);
+    const maxEnemies = Math.min(200, 28 + Math.floor(t * 0.28) + levelFactor * 6);
     if (this.enemies.length >= maxEnemies) return;
 
-    const interval = Math.max(0.22, 1.05 - t * 0.0014);
+    const interval = Math.max(0.16, 1.0 - t * 0.0014 - levelFactor * 0.025);
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0) return;
     this.spawnTimer = interval;
 
-    const batchSize = 1 + Math.floor(t / 70);
+    const batchSize = 1 + Math.floor(t / 65) + Math.floor(levelFactor / 3);
     for (let i = 0; i < batchSize; i++) {
       this.spawnRegularEnemy(t);
     }
@@ -601,7 +602,7 @@ export class GameEngine {
                   : 'golem';
     }
 
-    const isElite = kind === 'golem' || (t > 90 && Math.random() < 0.035);
+    const isElite = (kind === 'golem' && Math.random() < 0.25) || (t > 90 && Math.random() < 0.025);
     this.createEnemy(kind, x, y, isElite, false);
   }
 
@@ -643,7 +644,9 @@ export class GameEngine {
 
     const cfg = baseTable[kind];
     const eliteMult = isElite && !isBoss ? 2.4 : 1;
-    const maxHp = Math.round(cfg.hp * timeScale * eliteMult);
+    const lv = Math.max(1, this.player.level);
+    const levelHpScale = 1 + (lv - 1) * 0.16 + Math.pow(Math.max(0, lv - 5), 1.3) * 0.04;
+    const maxHp = Math.round(cfg.hp * timeScale * levelHpScale * eliteMult);
 
     const enemy: Enemy = {
       id: this.nextEntityId++,
@@ -1595,16 +1598,18 @@ export class GameEngine {
       }
       if (e.isElite) {
         this.flushRunDustToSave();
-        this.gems.push({
-          id: this.nextEntityId++,
-          kind: 'chest',
-          x: e.x,
-          y: e.y,
-          value: 1,
-          magnetized: false,
-          magnetSpeed: 0,
-          bobPhase: 0,
-        });
+        if (Math.random() < 0.22) {
+          this.gems.push({
+            id: this.nextEntityId++,
+            kind: 'chest',
+            x: e.x,
+            y: e.y,
+            value: 1,
+            magnetized: false,
+            magnetSpeed: 0,
+            bobPhase: 0,
+          });
+        }
       }
     }
 
@@ -1714,7 +1719,7 @@ export class GameEngine {
           if (p.xp >= p.xpToNext) {
             p.xp -= p.xpToNext;
             p.level++;
-            p.xpToNext = Math.round(p.xpToNext * 1.24 + 14);
+            p.xpToNext = Math.round(p.xpToNext * 1.28 + 20 + p.level * p.level * 1.6);
             sound.playLevelUp();
             this.fx.spawnWorld('mana_burst', p.x, p.y, { priority: 4 });
             this.openUpgradeModal(`✨ 升至 Lv.${p.level} · 选择法术或强化`);

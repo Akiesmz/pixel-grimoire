@@ -126,6 +126,7 @@ export class GameEngine {
   private orbitAngle = 0;
   private holyCastCount = 0;
   private pickupPulseTimer = 0;
+  private regenTimer = 0;
 
   private spawnTimer = 0;
   private bossSpawned = [false, false, false];
@@ -328,6 +329,7 @@ export class GameEngine {
     this.objective = null;
     this.holyCastCount = 0;
     this.pickupPulseTimer = 0;
+    this.regenTimer = 0;
     this.camX = this.player.x - VIEW_W / 2;
     this.camY = this.player.y - VIEW_H / 2;
 
@@ -493,6 +495,18 @@ export class GameEngine {
     if (p.invulnTimer > 0) p.invulnTimer -= dt;
     if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dt);
 
+    // Gentle passive HP regeneration
+    if (p.hp > 0 && p.hp < p.maxHp) {
+      this.regenTimer += dt;
+      if (this.regenTimer >= 4.0) {
+        this.regenTimer = 0;
+        const regenAmt = 1 + Math.floor(p.level / 3);
+        p.hp = Math.min(p.maxHp, p.hp + regenAmt);
+      }
+    } else {
+      this.regenTimer = 0;
+    }
+
     if (p.dashTimer > 0) {
       p.dashTimer -= dt;
       p.x += p.dashVx * dt;
@@ -645,10 +659,11 @@ export class GameEngine {
     };
 
     const cfg = baseTable[kind];
-    const eliteMult = isElite && !isBoss ? 2.4 : 1;
+    const eliteMult = isElite && !isBoss ? 2.2 : 1;
     const lv = Math.max(1, this.player.level);
-    const levelHpScale = 1 + (lv - 1) * 0.12 + Math.pow(Math.max(0, lv - 6), 1.25) * 0.03;
-    const maxHp = Math.round(cfg.hp * timeScale * levelHpScale * eliteMult);
+    const levelHpBonus = (lv - 1) * 0.14 + Math.pow(Math.max(0, lv - 6), 1.2) * 0.03;
+    const combinedScale = 1 + (timeScale - 1) * 0.72 + levelHpBonus * 0.7;
+    const maxHp = Math.round(cfg.hp * combinedScale * eliteMult);
 
     const enemy: Enemy = {
       id: this.nextEntityId++,
@@ -1729,10 +1744,14 @@ export class GameEngine {
           if (p.xp >= p.xpToNext) {
             p.xp -= p.xpToNext;
             p.level++;
+            p.maxHp += 12;
+            p.hp = Math.min(p.maxHp, p.hp + 15);
+            p.damageMult += 0.05;
             p.xpToNext = Math.round(p.xpToNext * 1.28 + 20 + p.level * p.level * 1.6);
             sound.playLevelUp();
             this.fx.spawnWorld('mana_burst', p.x, p.y, { priority: 4 });
-            this.openUpgradeModal(`✨ 升至 Lv.${p.level} · 选择法术或强化`);
+            this.spawnText(p.x, p.y - 22, '+12生命 +5%伤害', '#69ff94', true);
+            this.openUpgradeModal(`✨ 升至 Lv.${p.level}（生命+12 · 伤害+5%）`);
             return;
           }
         }
@@ -1808,6 +1827,16 @@ export class GameEngine {
       const def = SPELL_MAP[s.id];
       if (s.level >= def.maxLevel) continue;
 
+      const nextLv = s.level + 1;
+      const isAwaken = nextLv === 5 || nextLv === def.maxLevel;
+      const awakenTag = isAwaken ? ' ★觉醒(额外伤害+30% 冷却-8%)' : '';
+      const applyAwaken = () => {
+        if (isAwaken) {
+          s.damageBonus += 0.3;
+          s.cooldownBonus += 0.08;
+        }
+      };
+
       const variants: {
         sub: string;
         desc: string;
@@ -1815,38 +1844,40 @@ export class GameEngine {
         apply: () => void;
       }[] = [
         {
-          sub: `${def.name} Lv.${s.level + 1}`,
-          desc: `伤害 +28%，范围 +12%，经验效率 +6%`,
-          rarity: 'common',
+          sub: `${def.name} Lv.${nextLv}`,
+          desc: `伤害 +28%，范围 +12%，经验效率 +6%${awakenTag}`,
+          rarity: isAwaken ? 'legendary' : 'common',
           apply: () => {
             s.level++;
             s.damageBonus += 0.28;
             s.areaBonus += 0.12;
             p.xpMult += 0.06;
+            applyAwaken();
           },
         },
         {
-          sub: `${def.name} Lv.${s.level + 1} · 灵动`,
-          desc: `伤害 +20%，冷却 -10%，闪避率 +4%`,
-          rarity: 'rare',
+          sub: `${def.name} Lv.${nextLv} · 灵动`,
+          desc: `伤害 +20%，冷却 -10%，闪避率 +4%${awakenTag}`,
+          rarity: isAwaken ? 'legendary' : 'rare',
           apply: () => {
             s.level++;
             s.damageBonus += 0.2;
             s.cooldownBonus += 0.1;
             p.dodgeChance = Math.min(0.65, p.dodgeChance + 0.04);
+            applyAwaken();
           },
         },
         {
-          sub: `${def.name} Lv.${s.level + 1}`,
+          sub: `${def.name} Lv.${nextLv}`,
           desc:
-            s.id === 'frost_nova'
+            (s.id === 'frost_nova'
               ? `冷却 -14%，范围 +22%`
               : s.id === 'arcane_orbit'
                 ? `环绕法球 +1，伤害 +15%`
                 : s.id === 'chain_lightning'
                   ? `弹射次数 +2，伤害 +15%`
-                  : `投射/落点数量 +1，冷却 -8%`,
-          rarity: 'epic',
+                  : `投射/落点数量 +1，冷却 -8%`) + awakenTag,
+          rarity: isAwaken ? 'legendary' : 'epic',
           apply: () => {
             s.level++;
             if (s.id === 'frost_nova') {
@@ -1860,6 +1891,7 @@ export class GameEngine {
               s.cooldownBonus += 0.08;
               if (s.id === 'arcane_orbit') s.damageBonus += 0.15;
             }
+            applyAwaken();
           },
         },
       ];

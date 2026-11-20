@@ -82,6 +82,8 @@ export interface PlayerState {
   aimAngle: number;
   hp: number;
   maxHp: number;
+  shield: number;
+  maxShield: number;
   xp: number;
   xpToNext: number;
   level: number;
@@ -106,6 +108,10 @@ export interface PlayerState {
   dashVy: number;
   ultCharge: number; // 0..100
   frenzyTimer: number;
+  blinkNova: boolean;
+  reactionDouble: boolean;
+  critCdReset: boolean;
+  shieldRegen: boolean;
   animTime: number;
   spells: ActiveSpell[];
   relics: Record<string, number>;
@@ -151,6 +157,10 @@ export interface Enemy {
   reactionCooldown: number;
   animTime: number;
   attackTimer: number;
+  specialTimer: number;
+  chargeTimer: number;
+  chargeVx: number;
+  chargeVy: number;
   facing: number;
   knockVx: number;
   knockVy: number;
@@ -235,9 +245,20 @@ export interface MapProp {
   bobPhase: number;
 }
 
+export interface BossHazard {
+  id: number;
+  kind: 'lightning_ring' | 'ember_slam' | 'void_blast';
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  delay: number;
+  maxDelay: number;
+}
+
 export interface Gem {
   id: number;
-  kind: 'xp_small' | 'xp_med' | 'xp_large' | 'heal' | 'magnet' | 'chest';
+  kind: 'xp_small' | 'xp_med' | 'xp_large' | 'heal' | 'magnet' | 'chest' | 'boss_chest';
   x: number;
   y: number;
   value: number;

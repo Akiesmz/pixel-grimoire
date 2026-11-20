@@ -329,21 +329,20 @@ export function drawGem(
     ctx.fillRect(px - 3, py - 3, 6, 6);
     ctx.fillStyle = '#ff4757';
     ctx.fillRect(px - 3, py - 3, 6, 2);
-  } else if (g.kind === 'chest') {
-    // Golden relic chest
+  } else if (g.kind === 'chest' || g.kind === 'boss_chest') {
+    const isBoss = g.kind === 'boss_chest';
     ctx.fillStyle = '#09080f';
+    ctx.fillRect(px - 8, py - 7, 16, 14);
+    ctx.fillStyle = isBoss ? '#9e1938' : '#9e5a20';
     ctx.fillRect(px - 7, py - 6, 14, 12);
-    ctx.fillStyle = '#9e5a20';
-    ctx.fillRect(px - 6, py - 5, 12, 10);
-    ctx.fillStyle = '#ffd147';
-    ctx.fillRect(px - 6, py - 5, 12, 2);
-    ctx.fillRect(px - 6, py, 12, 2);
+    ctx.fillStyle = isBoss ? '#ffdf66' : '#ffd147';
+    ctx.fillRect(px - 7, py - 6, 14, 2);
+    ctx.fillRect(px - 7, py, 14, 2);
     ctx.fillRect(px - 2, py - 2, 4, 4);
-    // Sparkle
     if (Math.floor(time * 6) % 2 === 0) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(px - 5, py - 8, 2, 2);
-      ctx.fillRect(px + 4, py - 7, 2, 2);
+      ctx.fillStyle = isBoss ? '#ff8cf5' : '#ffffff';
+      ctx.fillRect(px - 6, py - 9, 2, 2);
+      ctx.fillRect(px + 5, py - 8, 2, 2);
     }
   }
 }

@@ -17,6 +17,7 @@
 
         <!-- In-game HUD -->
         <div id="hud" class="hud hidden">
+          <div id="low-hp-vignette" class="low-hp-vignette hidden"></div>
           <div class="xp-bar-wrap">
             <div id="xp-bar-fill" class="xp-bar-fill"></div>
             <span id="hud-level" class="xp-level-label">Lv.1</span>
@@ -27,6 +28,10 @@
               <div class="stat-bar hp-bar">
                 <div id="hp-bar-fill" class="stat-bar-fill hp-fill"></div>
                 <span id="hud-hp-text" class="stat-bar-text">100 / 100</span>
+              </div>
+              <div id="shield-bar-wrap" class="stat-bar shield-bar hidden">
+                <div id="shield-bar-fill" class="stat-bar-fill shield-fill"></div>
+                <span id="hud-shield-text" class="stat-bar-text">护盾 0 / 0</span>
               </div>
               <div class="stat-bar dash-bar">
                 <div id="dash-bar-fill" class="stat-bar-fill dash-fill"></div>
@@ -171,6 +176,7 @@
               <button id="btn-back-home" class="secondary-btn small-btn">🏠 返回主页</button>
               <div class="dust-pill">✨ 星尘余额：<b id="select-dust">0</b></div>
               <button id="btn-open-talents" class="gold-btn">🌟 永久天赋树</button>
+              <button id="btn-open-achievements" class="secondary-btn small-btn">🏅 生涯成就</button>
             </div>
 
             <div id="wizard-grid" class="wizard-grid"></div>
@@ -205,6 +211,22 @@
           </div>
         </div>
 
+        <!-- Achievements Overlay -->
+        <div id="modal-achievements" class="overlay hidden">
+          <div class="panel talents-panel">
+            <div class="talents-header">
+              <div>
+                <h2 class="modal-title" style="margin:0; text-align:left;">🏅 生涯成就</h2>
+                <div id="ach-progress" class="talents-sub">达成成就即可直接领取大量星尘奖励</div>
+              </div>
+            </div>
+            <div id="ach-grid" class="talents-grid"></div>
+            <div class="modal-actions" style="margin-top:16px;">
+              <button id="btn-close-achievements" class="primary-btn">返回</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Level Up / Chest Overlay -->
         <div id="modal-levelup" class="overlay hidden">
           <div class="panel levelup-panel">
@@ -223,6 +245,7 @@
             <h2 class="modal-title">⏸ 游戏已暂停</h2>
             <div id="pause-stats" class="stats-grid"></div>
             <div id="pause-damage" class="damage-panel"></div>
+            <div id="pause-recipes" class="damage-panel"></div>
             <div class="modal-actions">
               <button id="btn-resume" class="primary-btn">继续战斗</button>
               <button id="btn-quit" class="secondary-btn">返回选人</button>

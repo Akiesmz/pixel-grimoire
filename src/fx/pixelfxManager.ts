@@ -154,12 +154,19 @@ export class PixelFxManager {
 
   private stamps = new Map<string, StampEntry>();
   private worldFx: LiveWorldFx[] = [];
-  private readonly maxWorldFx = 26;
+  private readonly maxWorldFx: number;
   private seedCounter = 1;
+  private fxAccum = 0;
+  private readonly fxStep = 1 / 30; // Native pixelfx 30 FPS cadence
+  private worldLayerDirty = true;
 
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
+    const isMobile =
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth <= 820);
+    this.maxWorldFx = isMobile ? 16 : 26;
 
     this.backFrame = createFrame(width, height);
     this.backCanvas = document.createElement('canvas');
@@ -178,6 +185,7 @@ export class PixelFxManager {
 
   public clearAll(): void {
     this.worldFx = [];
+    this.worldLayerDirty = true;
   }
 
   public getStampKey(base: StampFxBase, element: ElementType): string {
@@ -290,10 +298,17 @@ export class PixelFxManager {
   }
 
   public update(dt: number): void {
+    // Throttle procedural pixelfx stepping & pixel compositing to native 30 FPS
+    this.fxAccum += dt;
+    if (this.fxAccum < this.fxStep) return;
+    const stepDt = Math.min(0.08, this.fxAccum);
+    this.fxAccum = 0;
+    this.worldLayerDirty = true;
+
     // Update active world one-shots
     for (let i = this.worldFx.length - 1; i >= 0; i--) {
       const item = this.worldFx[i];
-      item.instance.update(dt);
+      item.instance.update(stepDt);
       if (item.instance.done()) {
         this.worldFx.splice(i, 1);
       }
@@ -302,7 +317,7 @@ export class PixelFxManager {
     // Update & render only stamps that were used recently
     for (const stamp of this.stamps.values()) {
       if (!stamp.usedThisFrame) continue;
-      stamp.fx.update(dt);
+      stamp.fx.update(stepDt);
       clearFrame(stamp.frame);
       stamp.fx.draw(stamp.frame);
       composite(stamp.frame, stamp.imgData.data, null, 1.0);
@@ -338,6 +353,8 @@ export class PixelFxManager {
    * Render world-space pixelfx into back & front layers for the current camera top-left (camX, camY).
    */
   public prepareWorldLayers(camX: number, camY: number): void {
+    if (!this.worldLayerDirty && this.worldFx.length === 0) return;
+    this.worldLayerDirty = false;
     const ox = Math.round(camX);
     const oy = Math.round(camY);
 

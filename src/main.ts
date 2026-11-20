@@ -1,4 +1,6 @@
 import './style.css';
+import { ACHIEVEMENTS } from './data/achievements';
+import { EVOLUTION_RECIPES } from './data/evolutions';
 import { ELEMENT_INFO, SPELL_MAP } from './data/spells';
 import { getTalentCost, TALENTS } from './data/talents';
 import { WIZARDS } from './data/wizards';
@@ -10,6 +12,7 @@ const hud = document.getElementById('hud')!;
 const modalHome = document.getElementById('modal-home')!;
 const modalSelect = document.getElementById('modal-select')!;
 const modalTalents = document.getElementById('modal-talents')!;
+const modalAchievements = document.getElementById('modal-achievements')!;
 const modalLevelup = document.getElementById('modal-levelup')!;
 const modalPause = document.getElementById('modal-pause')!;
 const modalEnd = document.getElementById('modal-end')!;
@@ -24,8 +27,12 @@ const btnReroll = document.getElementById('btn-reroll') as HTMLButtonElement;
 
 const xpBarFill = document.getElementById('xp-bar-fill')!;
 const hudLevel = document.getElementById('hud-level')!;
+const lowHpVignette = document.getElementById('low-hp-vignette')!;
 const hpBarFill = document.getElementById('hp-bar-fill')!;
 const hudHpText = document.getElementById('hud-hp-text')!;
+const shieldBarWrap = document.getElementById('shield-bar-wrap')!;
+const shieldBarFill = document.getElementById('shield-bar-fill')!;
+const hudShieldText = document.getElementById('hud-shield-text')!;
 const dashBarFill = document.getElementById('dash-bar-fill')!;
 const ultBarWrap = document.getElementById('ult-bar-wrap')!;
 const ultBarFill = document.getElementById('ult-bar-fill')!;
@@ -60,9 +67,14 @@ const btnCloseTalents = document.getElementById('btn-close-talents')!;
 const btnResetTalents = document.getElementById('btn-reset-talents')!;
 const btnEnterGame = document.getElementById('btn-enter-game')!;
 const btnBackHome = document.getElementById('btn-back-home')!;
+const btnOpenAchievements = document.getElementById('btn-open-achievements')!;
+const btnCloseAchievements = document.getElementById('btn-close-achievements')!;
+const achGrid = document.getElementById('ach-grid')!;
+const achProgress = document.getElementById('ach-progress')!;
 
 const pauseStats = document.getElementById('pause-stats')!;
 const pauseDamage = document.getElementById('pause-damage')!;
+const pauseRecipes = document.getElementById('pause-recipes')!;
 const endTitle = document.getElementById('end-title')!;
 const endSubtitle = document.getElementById('end-subtitle')!;
 const endStats = document.getElementById('end-stats')!;
@@ -79,6 +91,7 @@ let currentWizardId: WizardId = 'pyro';
 let currentChoices: UpgradeChoice[] = [];
 let homeOpen = true;
 let talentsModalOpen = false;
+let achievementsModalOpen = false;
 
 function formatTime(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -138,6 +151,40 @@ function closeTalentsModal(): void {
   talentsModalOpen = false;
   modalTalents.classList.add('hidden');
   renderTalentTree();
+  engine.pushHud();
+}
+
+function renderAchievements(): void {
+  const unlocked = engine.getUnlockedAchievements();
+  achProgress.textContent = `已解锁 ${unlocked.size} / ${ACHIEVEMENTS.length} 项成就（解锁自动发放星尘）`;
+  achGrid.innerHTML = '';
+
+  for (const ach of ACHIEVEMENTS) {
+    const done = unlocked.has(ach.id);
+    const card = document.createElement('div');
+    card.className = `talent-card${done ? ' maxed' : ''}`;
+    card.innerHTML = `
+      <div class="talent-top">
+        <span class="talent-icon">${ach.icon}</span>
+        <span class="talent-rank">${done ? '✅ 已解锁' : `✨ +${ach.rewardDust}`}</span>
+      </div>
+      <div class="talent-name">${ach.name}</div>
+      <div class="talent-desc">${ach.desc}</div>
+    `;
+    achGrid.appendChild(card);
+  }
+}
+
+function openAchievementsModal(): void {
+  achievementsModalOpen = true;
+  renderAchievements();
+  modalAchievements.classList.remove('hidden');
+  engine.pushHud();
+}
+
+function closeAchievementsModal(): void {
+  achievementsModalOpen = false;
+  modalAchievements.classList.add('hidden');
   engine.pushHud();
 }
 
@@ -242,19 +289,43 @@ function renderDamagePanel(target: HTMLElement, snap: HudSnapshot): void {
       .join('');
 }
 
+function renderRecipeGuide(target: HTMLElement, snap: HudSnapshot): void {
+  const owned = new Map(snap.spells.map((s) => [s.id, s]));
+  target.innerHTML =
+    `<div class="damage-panel-title">📖 超武进化配方图鉴（主法术 Lv.5 + 搭档，或单法术 Lv.7）</div>` +
+    EVOLUTION_RECIPES.map((r) => {
+      const baseSp = owned.get(r.base);
+      const hasPartner = owned.has(r.partner);
+      const statusHtml = baseSp?.evolved
+        ? `<span class="recipe-status evolved">🌟 已进化</span>`
+        : baseSp && hasPartner
+          ? `<span class="recipe-status ready">✅ 组合就绪</span>`
+          : `<span class="recipe-status locked">未集齐</span>`;
+      return `
+        <div class="recipe-row">
+          <span class="recipe-formula">${SPELL_MAP[r.base].icon}${SPELL_MAP[r.base].name} + ${SPELL_MAP[r.partner].icon}${SPELL_MAP[r.partner].name} → <b>${r.icon}${r.evolvedName}</b></span>
+          ${statusHtml}
+        </div>
+      `;
+    }).join('');
+}
+
 function renderHud(snap: HudSnapshot): void {
   if (snap.phase !== 'playing' && joystickTouchId !== null) {
     resetJoystick();
   }
   selectDustEl.textContent = String(engine.getMetaSave().dust);
-  modalHome.classList.toggle('hidden', snap.phase !== 'select' || !homeOpen || talentsModalOpen);
-  modalSelect.classList.toggle('hidden', snap.phase !== 'select' || homeOpen || talentsModalOpen);
+  const subModalOpen = talentsModalOpen || achievementsModalOpen;
+  modalHome.classList.toggle('hidden', snap.phase !== 'select' || !homeOpen || subModalOpen);
+  modalSelect.classList.toggle('hidden', snap.phase !== 'select' || homeOpen || subModalOpen);
   modalLevelup.classList.toggle('hidden', snap.phase !== 'levelup');
   modalPause.classList.toggle('hidden', snap.phase !== 'paused');
-  modalEnd.classList.toggle('hidden', (snap.phase !== 'gameover' && snap.phase !== 'victory') || talentsModalOpen);
+  modalEnd.classList.toggle('hidden', (snap.phase !== 'gameover' && snap.phase !== 'victory') || subModalOpen);
   hud.classList.toggle('hidden', snap.phase === 'select');
 
   if (snap.phase === 'select') return;
+
+  lowHpVignette.classList.toggle('hidden', !snap.lowHp || snap.phase !== 'playing');
 
   const xpPct = Math.min(100, (snap.xp / Math.max(1, snap.xpToNext)) * 100);
   xpBarFill.style.width = `${xpPct.toFixed(1)}%`;
@@ -263,6 +334,14 @@ function renderHud(snap: HudSnapshot): void {
   const hpPct = Math.min(100, Math.max(0, (snap.hp / Math.max(1, snap.maxHp)) * 100));
   hpBarFill.style.width = `${hpPct.toFixed(1)}%`;
   hudHpText.textContent = `${snap.hp} / ${snap.maxHp}`;
+
+  if (snap.maxShield > 0) {
+    shieldBarWrap.classList.remove('hidden');
+    shieldBarFill.style.width = `${Math.min(100, (snap.shield / snap.maxShield) * 100).toFixed(1)}%`;
+    hudShieldText.textContent = `护盾 ${snap.shield} / ${snap.maxShield}`;
+  } else {
+    shieldBarWrap.classList.add('hidden');
+  }
 
   dashBarFill.style.width = `${(snap.dashReadyRatio * 100).toFixed(0)}%`;
   btnTouchDash.classList.toggle('cooling', snap.dashReadyRatio < 1);
@@ -334,6 +413,7 @@ function renderHud(snap: HudSnapshot): void {
   if (snap.phase === 'paused') {
     renderStatsGrid(pauseStats, snap);
     renderDamagePanel(pauseDamage, snap);
+    renderRecipeGuide(pauseRecipes, snap);
   } else if (snap.phase === 'gameover' || snap.phase === 'victory') {
     const isWin = snap.phase === 'victory';
     endTitle.textContent = isWin ? '🏆 凯旋！击败虚空大君' : '💀 巫师陨落';
@@ -364,6 +444,8 @@ btnBackHome.addEventListener('click', () => {
   engine.pushHud();
 });
 btnOpenTalents.addEventListener('click', openTalentsModal);
+btnOpenAchievements.addEventListener('click', openAchievementsModal);
+btnCloseAchievements.addEventListener('click', closeAchievementsModal);
 btnEndTalents.addEventListener('click', openTalentsModal);
 btnCloseTalents.addEventListener('click', closeTalentsModal);
 btnResetTalents.addEventListener('click', () => {

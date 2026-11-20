@@ -1,4 +1,11 @@
 import { sound } from '../audio';
+import {
+  ACHIEVEMENTS,
+  loadUnlockedAchievements,
+  saveUnlockedAchievements,
+  type AchievementId,
+} from '../data/achievements';
+import { EVOLUTION_RECIPES } from '../data/evolutions';
 import { ELEMENT_INFO, SPELL_MAP, SPELLS } from '../data/spells';
 import {
   buyTalent as buyTalentInSave,
@@ -12,9 +19,11 @@ import {
 import { WIZARD_MAP } from '../data/wizards';
 import { PixelFxManager } from '../fx/pixelfxManager';
 import { drawArenaGround, drawEnemy, drawGem, drawMapProp, drawWizard } from '../render/sprites';
+import { SpatialGrid } from './spatialGrid';
 import type {
   ActiveBeam,
   ActiveSpell,
+  BossHazard,
   DelayedStrike,
   ElementType,
   Enemy,
@@ -50,6 +59,9 @@ export interface HudSnapshot {
   phase: GamePhase;
   hp: number;
   maxHp: number;
+  shield: number;
+  maxShield: number;
+  lowHp: boolean;
   xp: number;
   xpToNext: number;
   level: number;
@@ -131,15 +143,20 @@ export class GameEngine {
   private nextEntityId = 1;
 
   private enemies: Enemy[] = [];
+  private grid = new SpatialGrid(64);
   private projectiles: Projectile[] = [];
   private zones: GroundZone[] = [];
   private beams: ActiveBeam[] = [];
   private delayedStrikes: DelayedStrike[] = [];
+  private bossHazards: BossHazard[] = [];
   private gems: Gem[] = [];
   private props: MapProp[] = [];
   private texts: FloatingText[] = [];
   private chainArcs: ChainArc[] = [];
   private damageLog: Record<string, number> = {};
+  private unlockedAchievements: Set<AchievementId> = loadUnlockedAchievements();
+  private runReactions = 0;
+  private runDodges = 0;
   private orbitHitCooldowns = new Map<number, number>();
   private orbitAngle = 0;
   private starfallTimer = 0;
@@ -147,6 +164,8 @@ export class GameEngine {
   private holyCastCount = 0;
   private pickupPulseTimer = 0;
   private regenTimer = 0;
+  private shieldRegenTimer = 0;
+  private gemMergeTimer = 2;
 
   private spawnTimer = 0;
   private bossSpawned = [false, false, false];
@@ -187,6 +206,22 @@ export class GameEngine {
 
   public getMetaSave(): MetaSaveData {
     return this.metaSave;
+  }
+
+  public getUnlockedAchievements(): Set<AchievementId> {
+    return this.unlockedAchievements;
+  }
+
+  private unlockAchievement(id: AchievementId): void {
+    if (this.unlockedAchievements.has(id)) return;
+    const def = ACHIEVEMENTS.find((a) => a.id === id);
+    if (!def) return;
+    this.unlockedAchievements.add(id);
+    saveUnlockedAchievements(this.unlockedAchievements);
+    this.metaSave.dust += def.rewardDust;
+    saveMetaSave(this.metaSave);
+    sound.playObjectiveComplete();
+    this.showBanner(`🏅 成就解锁：${def.icon} ${def.name}（奖励 ✨${def.rewardDust} 星尘）`, 3.6);
   }
 
   public purchaseTalent(id: TalentId): boolean {
@@ -287,6 +322,8 @@ export class GameEngine {
       aimAngle: 0,
       hp: maxHp,
       maxHp,
+      shield: 0,
+      maxShield: 0,
       xp: 0,
       xpToNext: 34,
       level: 1,
@@ -311,6 +348,10 @@ export class GameEngine {
       dashVy: 0,
       ultCharge: 0,
       frenzyTimer: 0,
+      blinkNova: false,
+      reactionDouble: false,
+      critCdReset: false,
+      shieldRegen: false,
       animTime: 0,
       spells: [
         {
@@ -336,11 +377,14 @@ export class GameEngine {
     this.zones = [];
     this.beams = [];
     this.delayedStrikes = [];
+    this.bossHazards = [];
     this.gems = [];
     this.props = [];
     this.texts = [];
     this.chainArcs = [];
     this.damageLog = {};
+    this.runReactions = 0;
+    this.runDodges = 0;
     this.orbitHitCooldowns.clear();
     this.fx.clearAll();
 
@@ -359,6 +403,8 @@ export class GameEngine {
     this.propSpawnTimer = 14;
     this.pickupPulseTimer = 0;
     this.regenTimer = 0;
+    this.shieldRegenTimer = 0;
+    this.gemMergeTimer = 2;
     this.camX = this.player.x - VIEW_W / 2;
     this.camY = this.player.y - VIEW_H / 2;
 
@@ -609,6 +655,9 @@ export class GameEngine {
 
   private update(dt: number): void {
     this.elapsed += dt;
+    if (this.elapsed >= 300) {
+      this.unlockAchievement('survivor_5m');
+    }
     if (this.bannerTimer > 0) {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) this.bannerText = null;
@@ -616,6 +665,13 @@ export class GameEngine {
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
       if (this.shakeTimer <= 0) this.shakeAmp = 0;
+    }
+
+    // Rebuild spatial hash grid once per frame for fast O(1) cell lookups
+    this.grid.clear();
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (!e.dead) this.grid.insert(e);
     }
 
     this.updatePlayer(dt);
@@ -627,8 +683,10 @@ export class GameEngine {
     this.updateZones(dt);
     this.updateBeams(dt);
     this.updateDelayedStrikes(dt);
+    this.updateBossHazards(dt);
     this.updateEnemies(dt);
     this.updateGems(dt);
+    this.mergeNearbyGems(dt);
     this.updateTextsAndArcs(dt);
     this.fx.update(dt);
     if (this.pickupPulseTimer > 0) this.pickupPulseTimer = Math.max(0, this.pickupPulseTimer - dt);
@@ -664,12 +722,32 @@ export class GameEngine {
       this.regenTimer = 0;
     }
 
+    // Arcane Shield regeneration (from Mythic Boss Relic)
+    if (p.shieldRegen && p.maxShield > 0 && p.shield < p.maxShield) {
+      this.shieldRegenTimer += dt;
+      if (this.shieldRegenTimer >= 10.0) {
+        this.shieldRegenTimer = 0;
+        p.shield = Math.min(p.maxShield, p.shield + 35);
+        this.spawnText(p.x, p.y - 18, '+35 护盾', '#5cd6ff', false);
+      }
+    }
+
     if (p.dashTimer > 0) {
       p.dashTimer -= dt;
       p.x += p.dashVx * dt;
       p.y += p.dashVy * dt;
       if (p.dashTimer <= 0) {
         this.fx.spawnWorld('blink_in', p.x, p.y, { priority: 4 });
+        if (p.blinkNova) {
+          this.fx.spawnWorld('frost_nova', p.x, p.y, { priority: 4 });
+          sound.playExplosion(false);
+          const near = this.grid.queryRadius(p.x, p.y, 78 * p.areaMult);
+          const dmg = Math.round((34 + p.level * 5) * p.damageMult);
+          for (const e of near) {
+            this.damageEnemy(e, dmg, 'frost', p.x, p.y, 120, 'frost_nova');
+            e.slowTimer = Math.max(e.slowTimer, 2.5 * p.freezeMult);
+          }
+        }
       }
       return;
     }
@@ -854,6 +932,10 @@ export class GameEngine {
       reactionCooldown: 0,
       animTime: Math.random() * 10,
       attackTimer: 1.5 + Math.random() * 1.5,
+      specialTimer: isBoss ? 4.5 : 99,
+      chargeTimer: 0,
+      chargeVx: 0,
+      chargeVy: 0,
       facing: 1,
       knockVx: 0,
       knockVy: 0,
@@ -1247,8 +1329,8 @@ export class GameEngine {
           element: spell.element,
           x: target.x,
           y: target.y,
-          radius: area,
-          damage,
+          radius: spell.evolved ? area * 1.5 : area,
+          damage: spell.evolved ? damage * 1.55 : damage,
           delay: 0.72,
           triggered: false,
         });
@@ -1408,7 +1490,7 @@ export class GameEngine {
         });
       }
       if (this.holyCastCount % 3 === 0 && p.hp < p.maxHp) {
-        const healAmt = 8 + Math.floor(spell.level * 1.5);
+        const healAmt = (8 + Math.floor(spell.level * 1.5)) * (spell.evolved ? 2 : 1);
         p.hp = Math.min(p.maxHp, p.hp + healAmt);
         this.fx.spawnWorld('heal_aoe', p.x, p.y, { priority: 3 });
         this.spawnText(p.x, p.y - 14, `+${healAmt}`, '#69ff94', false);
@@ -1438,14 +1520,23 @@ export class GameEngine {
   }
 
   private updateDelayedStrikes(dt: number): void {
+    const meteorSpell = this.player.spells.find((sp) => sp.id === 'meteor');
+    const smiteSpell = this.player.spells.find((sp) => sp.id === 'holy_smite');
+
     for (let i = this.delayedStrikes.length - 1; i >= 0; i--) {
       const s = this.delayedStrikes[i];
       s.delay -= dt;
       if (s.delay <= 0) {
         this.delayedStrikes.splice(i, 1);
+        const evolvedMeteor = s.kind === 'meteor' && s.sourceKey === 'meteor' && !!meteorSpell?.evolved;
+        const evolvedSmite = s.kind === 'smite' && s.sourceKey === 'holy_smite' && !!smiteSpell?.evolved;
+
         if (s.kind === 'meteor') {
-          this.addShake(4.2, 0.28);
+          this.addShake(evolvedMeteor ? 5.2 : 4.2, 0.28);
           sound.playExplosion(true);
+          if (evolvedMeteor) {
+            this.fx.spawnWorld('big_explosion', s.x, s.y, { priority: 5 });
+          }
         } else if (s.kind === 'lightning') {
           this.addShake(2.2, 0.14);
           sound.playLightning();
@@ -1454,15 +1545,85 @@ export class GameEngine {
           sound.playExplosion(false);
         }
 
-        for (const e of this.enemies) {
-          if (e.dead) continue;
-          const d = Math.hypot(e.x - s.x, e.y - s.y);
-          if (d <= s.radius + e.radius) {
-            this.damageEnemy(e, s.damage, s.element, s.x, s.y, s.kind === 'meteor' ? 110 : 50, s.sourceKey);
-            if (s.kind === 'lightning') {
-              e.stunTimer = Math.max(e.stunTimer, 0.55);
-            }
+        if (evolvedSmite) {
+          this.zones.push({
+            id: this.nextEntityId++,
+            kind: 'poison_cloud',
+            element: s.element,
+            stampKey: 'poison_cloud',
+            x: s.x,
+            y: s.y,
+            vx: 0,
+            vy: 0,
+            radius: 52 * this.player.areaMult,
+            damage: Math.round(s.damage * 0.35),
+            tickTimer: 0.15,
+            tickInterval: 0.42,
+            life: 4.0,
+            maxLife: 4.0,
+            pullStrength: 0,
+            scale: 0.65,
+          });
+        }
+
+        const hits = this.grid.queryRadius(s.x, s.y, s.radius);
+        for (const e of hits) {
+          this.damageEnemy(e, s.damage, s.element, s.x, s.y, s.kind === 'meteor' ? 110 : 50, s.sourceKey);
+          if (s.kind === 'lightning') {
+            e.stunTimer = Math.max(e.stunTimer, 0.55);
           }
+        }
+      }
+    }
+  }
+
+  private updateBossHazards(dt: number): void {
+    const p = this.player;
+    for (let i = this.bossHazards.length - 1; i >= 0; i--) {
+      const h = this.bossHazards[i];
+      h.delay -= dt;
+      if (h.delay <= 0) {
+        this.bossHazards.splice(i, 1);
+        if (h.kind === 'lightning_ring') {
+          this.fx.spawnWorld('lightning_strike', h.x, h.y + 6, { priority: 4 });
+          sound.playLightning();
+        } else if (h.kind === 'ember_slam') {
+          this.fx.spawnWorld('flame_pillar', h.x, h.y, { priority: 4 });
+          sound.playExplosion(true);
+        } else {
+          this.fx.spawnWorld('dark_explosion', h.x, h.y, { priority: 4 });
+          sound.playExplosion(true);
+        }
+        this.addShake(3.0, 0.18);
+        if (Math.hypot(p.x - h.x, p.y - h.y) <= h.radius) {
+          this.damagePlayer(h.damage);
+        }
+      }
+    }
+  }
+
+  private mergeNearbyGems(dt: number): void {
+    this.gemMergeTimer -= dt;
+    if (this.gemMergeTimer > 0) return;
+    this.gemMergeTimer = 1.6;
+    if (this.gems.length < 75) return;
+
+    // Merge clusters of unmagnetized small/med XP gems into high-value crystals
+    for (let i = this.gems.length - 1; i >= 0; i--) {
+      const a = this.gems[i];
+      if (!a || a.magnetized || (a.kind !== 'xp_small' && a.kind !== 'xp_med')) continue;
+      let mergedCount = 0;
+      for (let j = i - 1; j >= 0 && mergedCount < 6; j--) {
+        const b = this.gems[j];
+        if (!b || b.magnetized || (b.kind !== 'xp_small' && b.kind !== 'xp_med')) continue;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        if (dx * dx + dy * dy <= 42 * 42) {
+          a.value += b.value;
+          a.kind = 'xp_large';
+          this.gems.splice(j, 1);
+          i--;
+          mergedCount++;
         }
       }
     }
@@ -1614,40 +1775,37 @@ export class GameEngine {
         continue;
       }
 
-      // Player projectile hits enemies
+      // Player projectile hits enemies (accelerated with SpatialGrid!)
       let consumed = false;
       const srcKey = proj.spellId ?? 'fireball';
       const fireballSpell = proj.spellId === 'fireball' ? p.spells.find((s) => s.id === 'fireball') : undefined;
-      for (const e of this.enemies) {
+      const candidates = this.grid.queryRadius(proj.x, proj.y, proj.radius);
+      for (const e of candidates) {
         if (e.dead || proj.hitIds.has(e.id)) continue;
-        const d = Math.hypot(proj.x - e.x, proj.y - e.y);
-        if (d <= proj.radius + e.radius) {
-          proj.hitIds.add(e.id);
-          this.damageEnemy(e, proj.damage, proj.element, proj.x, proj.y, 65, srcKey);
+        proj.hitIds.add(e.id);
+        this.damageEnemy(e, proj.damage, proj.element, proj.x, proj.y, 65, srcKey);
 
-          if (proj.explodeRadius && proj.explodeRadius > 0) {
-            const evolvedPillar = !!fireballSpell?.evolved;
-            this.fx.spawnWorld(evolvedPillar ? 'flame_pillar' : 'small_explosion', proj.x, proj.y, {
-              element: proj.element === 'fire' ? 'none' : proj.element,
-              priority: evolvedPillar ? 4 : 3,
-            });
-            sound.playExplosion(evolvedPillar);
-            this.addShake(evolvedPillar ? 2.6 : 1.6, 0.12);
-            const blastR = evolvedPillar ? proj.explodeRadius * 1.45 : proj.explodeRadius;
-            for (const other of this.enemies) {
-              if (other.dead || other.id === e.id) continue;
-              if (Math.hypot(other.x - proj.x, other.y - proj.y) <= blastR + other.radius) {
-                this.damageEnemy(other, proj.damage * (evolvedPillar ? 1.05 : 0.72), proj.element, proj.x, proj.y, 55, srcKey);
-              }
-            }
+        if (proj.explodeRadius && proj.explodeRadius > 0) {
+          const evolvedPillar = !!fireballSpell?.evolved;
+          this.fx.spawnWorld(evolvedPillar ? 'flame_pillar' : 'small_explosion', proj.x, proj.y, {
+            element: proj.element === 'fire' ? 'none' : proj.element,
+            priority: evolvedPillar ? 4 : 3,
+          });
+          sound.playExplosion(evolvedPillar);
+          this.addShake(evolvedPillar ? 2.6 : 1.6, 0.12);
+          const blastR = evolvedPillar ? proj.explodeRadius * 1.45 : proj.explodeRadius;
+          const splash = this.grid.queryRadius(proj.x, proj.y, blastR);
+          for (const other of splash) {
+            if (other.dead || other.id === e.id) continue;
+            this.damageEnemy(other, proj.damage * (evolvedPillar ? 1.05 : 0.72), proj.element, proj.x, proj.y, 55, srcKey);
           }
+        }
 
-          if (proj.pierce > 0) {
-            proj.pierce--;
-          } else {
-            consumed = true;
-            break;
-          }
+        if (proj.pierce > 0) {
+          proj.pierce--;
+        } else {
+          consumed = true;
+          break;
         }
       }
 
@@ -1712,6 +1870,95 @@ export class GameEngine {
 
         const speedMult = e.slowTimer > 0 ? 0.55 : 1;
         const moveSpeed = e.speed * speedMult;
+
+        // Unique Boss special abilities!
+        if (e.isBoss) {
+          if (e.chargeTimer > 0) {
+            e.chargeTimer -= dt;
+            e.x += e.chargeVx * dt;
+            e.y += e.chargeVy * dt;
+          } else {
+            e.specialTimer -= dt;
+            if (e.specialTimer <= 0) {
+              if (e.kind === 'boss_ember') {
+                // Ember Lord: high-speed charge + fiery ground slam hazard
+                e.specialTimer = 5.4;
+                e.chargeTimer = 0.52;
+                e.chargeVx = (dx / dist) * 165;
+                e.chargeVy = (dy / dist) * 165;
+                this.bossHazards.push({
+                  id: this.nextEntityId++,
+                  kind: 'ember_slam',
+                  x: p.x,
+                  y: p.y,
+                  radius: 34,
+                  damage: Math.round(e.damage * 1.2),
+                  delay: 0.95,
+                  maxDelay: 0.95,
+                });
+                this.spawnText(e.x, e.y - 26, '烈焰冲锋!', '#ff7b24', true);
+              } else if (e.kind === 'boss_storm') {
+                // Storm Colossus: 3 telegraphed lightning rings around player
+                e.specialTimer = 5.0;
+                for (let k = 0; k < 3; k++) {
+                  const a = (k / 3) * Math.PI * 2 + Math.random() * 0.6;
+                  const r = k === 0 ? 0 : 38 + Math.random() * 24;
+                  this.bossHazards.push({
+                    id: this.nextEntityId++,
+                    kind: 'lightning_ring',
+                    x: p.x + Math.cos(a) * r,
+                    y: p.y + Math.sin(a) * r,
+                    radius: 26,
+                    damage: Math.round(e.damage * 1.15),
+                    delay: 0.95 + k * 0.12,
+                    maxDelay: 0.95 + k * 0.12,
+                  });
+                }
+                this.spawnText(e.x, e.y - 26, '天雷锁定!', '#ffe047', true);
+              } else if (e.kind === 'boss_void') {
+                // Void Archon: pull player gently + 3 void blasts + 8-way bullet ring
+                e.specialTimer = 5.2;
+                p.x -= (dx / dist) * 26;
+                p.y -= (dy / dist) * 26;
+                for (let k = 0; k < 3; k++) {
+                  const a = (k / 3) * Math.PI * 2 + Math.random();
+                  this.bossHazards.push({
+                    id: this.nextEntityId++,
+                    kind: 'void_blast',
+                    x: p.x + Math.cos(a) * 32,
+                    y: p.y + Math.sin(a) * 32,
+                    radius: 30,
+                    damage: Math.round(e.damage * 1.25),
+                    delay: 1.0,
+                    maxDelay: 1.0,
+                  });
+                }
+                for (let s = 0; s < 8; s++) {
+                  const a = (s / 8) * Math.PI * 2;
+                  this.projectiles.push({
+                    id: this.nextEntityId++,
+                    fromEnemy: true,
+                    element: 'none',
+                    stampKey: 'enemy_plasma',
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(a) * 105,
+                    vy: Math.sin(a) * 105,
+                    angle: a,
+                    radius: 5,
+                    damage: Math.round(e.damage * 0.8),
+                    pierce: 0,
+                    life: 2.8,
+                    maxLife: 2.8,
+                    scale: 0.48,
+                    hitIds: new Set(),
+                  });
+                }
+                this.spawnText(e.x, e.y - 26, '虚空坍缩!', '#d966ff', true);
+              }
+            }
+          }
+        }
 
         // Casters stop at mid-range and shoot plasma bolts
         if ((e.kind === 'caster' || e.isBoss) && dist < (e.isBoss ? 140 : 120)) {
@@ -1795,6 +2042,11 @@ export class GameEngine {
     const frenzyCrit = p.frenzyTimer > 0 ? 0.25 : 0;
     let critChance = p.critChance + frenzyCrit + (e.slowTimer > 0 && element === 'frost' ? 0.15 : 0);
     const isCrit = Math.random() < critChance;
+    if (isCrit && p.critCdReset && Math.random() < 0.22) {
+      for (const sp of p.spells) {
+        sp.cooldownTimer = Math.max(0.05, sp.cooldownTimer - 0.6);
+      }
+    }
     let dmg = rawDmg * (isCrit ? p.critMult : 1);
 
     // Vulnerable (+35% damage taken from Superconduct / Cryo Ultimate)
@@ -1814,58 +2066,52 @@ export class GameEngine {
         e.aura = 'none';
         e.auraTimer = 0;
         e.reactionCooldown = 0.65;
+        this.runReactions++;
+        if (this.runReactions >= 30) this.unlockAchievement('reaction_master');
+        const reactMult = p.reactionDouble ? 2 : 1;
 
         if (pair === 'fire+frost') {
           // Melt: 1.8x burst!
-          const bonus = Math.round(dmg * 0.8);
+          const bonus = Math.round(dmg * 0.8 * reactMult);
           dmg += bonus;
           this.recordDamage('reaction', bonus);
           this.spawnText(e.x, e.y - e.radius - 14, '融化!', '#ffbe33', true);
           this.fx.spawnWorld('crit_hit', e.x, e.y, { element: 'fire', priority: 2 });
         } else if (pair === 'fire+lightning') {
           // Overload: explosive AoE knockback
-          const blastDmg = Math.round(rawDmg * 0.95);
+          const blastDmg = Math.round(rawDmg * 0.95 * reactMult);
           this.spawnText(e.x, e.y - e.radius - 14, '超载!', '#ff7b24', true);
           this.fx.spawnWorld('small_explosion', e.x, e.y, { element: 'fire', priority: 2 });
           this.addShake(1.8, 0.1);
-          for (const other of this.enemies) {
-            if (other.dead) continue;
-            if (Math.hypot(other.x - e.x, other.y - e.y) <= 52 + other.radius) {
-              other.hp -= blastDmg;
-              other.hitFlash = 0.1;
-              this.recordDamage('reaction', blastDmg);
-              if (other.hp <= 0) this.killEnemy(other);
-            }
+          for (const other of this.grid.queryRadius(e.x, e.y, 52)) {
+            other.hp -= blastDmg;
+            other.hitFlash = 0.1;
+            this.recordDamage('reaction', blastDmg);
+            if (other.hp <= 0) this.killEnemy(other);
           }
         } else if (pair === 'frost+lightning') {
           // Superconduct: defense shred (+35% dmg taken) + AoE zap
-          const zapDmg = Math.round(rawDmg * 0.65);
+          const zapDmg = Math.round(rawDmg * 0.65 * reactMult);
           this.spawnText(e.x, e.y - e.radius - 14, '超导!', '#7be8ff', true);
           this.fx.spawnWorld('zap_hit', e.x, e.y, { element: 'frost', priority: 2 });
-          for (const other of this.enemies) {
-            if (other.dead) continue;
-            if (Math.hypot(other.x - e.x, other.y - e.y) <= 60 + other.radius) {
-              other.vulnerableTimer = Math.max(other.vulnerableTimer, 4.0);
-              other.hp -= zapDmg;
-              other.hitFlash = 0.1;
-              this.recordDamage('reaction', zapDmg);
-              if (other.hp <= 0) this.killEnemy(other);
-            }
+          for (const other of this.grid.queryRadius(e.x, e.y, 60)) {
+            other.vulnerableTimer = Math.max(other.vulnerableTimer, 4.0);
+            other.hp -= zapDmg;
+            other.hitFlash = 0.1;
+            this.recordDamage('reaction', zapDmg);
+            if (other.hp <= 0) this.killEnemy(other);
           }
         } else if (pair.includes('shadow')) {
           // Soul Burst: dark AoE + heal wizard
-          const soulDmg = Math.round(rawDmg * 0.85);
+          const soulDmg = Math.round(rawDmg * 0.85 * reactMult);
           this.spawnText(e.x, e.y - e.radius - 14, '魂爆!', '#d966ff', true);
           this.fx.spawnWorld('dark_explosion', e.x, e.y, { priority: 2 });
           if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 3);
-          for (const other of this.enemies) {
-            if (other.dead) continue;
-            if (Math.hypot(other.x - e.x, other.y - e.y) <= 50 + other.radius) {
-              other.hp -= soulDmg;
-              other.hitFlash = 0.1;
-              this.recordDamage('reaction', soulDmg);
-              if (other.hp <= 0) this.killEnemy(other);
-            }
+          for (const other of this.grid.queryRadius(e.x, e.y, 50)) {
+            other.hp -= soulDmg;
+            other.hitFlash = 0.1;
+            this.recordDamage('reaction', soulDmg);
+            if (other.hp <= 0) this.killEnemy(other);
           }
         }
       } else {
@@ -1943,12 +2189,16 @@ export class GameEngine {
     e.dead = true;
     this.kills++;
     this.metaSave.totalKills++;
+    if (this.kills >= 100) this.unlockAchievement('first_blood');
+    if (this.kills >= 500) this.unlockAchievement('slayer_500');
     this.player.ultCharge = Math.min(
       100,
       this.player.ultCharge + (e.isBoss ? 18 : e.isElite ? 5 : 1.1)
     );
 
     if (e.isBoss) {
+      if (e.kind === 'boss_ember') this.unlockAchievement('boss_ember');
+      if (e.kind === 'boss_void') this.unlockAchievement('boss_void');
       this.addDust(50);
       this.flushRunDustToSave();
       this.fx.spawnWorld('big_explosion', e.x, e.y, { priority: 5 });
@@ -1956,10 +2206,10 @@ export class GameEngine {
       this.hitStopTimer = 0.06;
       sound.playExplosion(true);
 
-      // Boss drops chest + big XP
+      // Boss drops Mythic Boss Chest (rule-changing relics!)
       this.gems.push({
         id: this.nextEntityId++,
-        kind: 'chest',
+        kind: 'boss_chest',
         x: e.x,
         y: e.y,
         value: 1,
@@ -1974,7 +2224,7 @@ export class GameEngine {
         this.pushHud();
         return;
       } else {
-        this.showBanner(`🎉 击败首领 ${e.name ?? ''}！获得大量星尘并掉落金色宝箱`, 3.5);
+        this.showBanner(`🎉 击败首领 ${e.name ?? ''}！掉落红金「首领圣遗物」宝箱`, 3.6);
       }
     } else {
       this.addDust(e.isElite ? 10 : 1);
@@ -2044,17 +2294,34 @@ export class GameEngine {
 
     if (Math.random() < p.dodgeChance) {
       p.invulnTimer = 0.38;
+      this.runDodges++;
+      if (this.runDodges >= 15) this.unlockAchievement('dodge_king');
       sound.playCast(820);
       this.fx.spawnWorld('hit_spark', p.x, p.y - 4, { element: 'frost', priority: 2 });
       this.spawnText(p.x, p.y - 18, '闪避!', '#7be8ff', true);
       return;
     }
 
-    p.hp = Math.max(0, p.hp - amount);
+    let remaining = amount;
+    if (p.shield > 0) {
+      const absorbed = Math.min(p.shield, remaining);
+      p.shield -= absorbed;
+      remaining -= absorbed;
+      if (absorbed > 0) {
+        this.spawnText(p.x, p.y - 18, `护盾-${Math.round(absorbed)}`, '#5cd6ff', false);
+      }
+    }
+
     p.invulnTimer = 0.65;
+    if (remaining <= 0) {
+      sound.playCast(540);
+      return;
+    }
+
+    p.hp = Math.max(0, p.hp - remaining);
     this.addShake(3.5, 0.22);
     sound.playPlayerHurt();
-    this.spawnText(p.x, p.y - 16, `-${amount}`, '#ff4757', true);
+    this.spawnText(p.x, p.y - 16, `-${Math.round(remaining)}`, '#ff4757', true);
 
     if (p.hp <= 0) {
       this.flushRunDustToSave();
@@ -2073,7 +2340,7 @@ export class GameEngine {
       const dy = p.y - g.y;
       const dist = Math.hypot(dx, dy);
 
-      if (g.kind !== 'chest' && !g.magnetized && dist <= p.pickupRadius) {
+      if (g.kind !== 'chest' && g.kind !== 'boss_chest' && !g.magnetized && dist <= p.pickupRadius) {
         g.magnetized = true;
         g.magnetSpeed = 165;
         this.pickupPulseTimer = 0.22;
@@ -2087,7 +2354,7 @@ export class GameEngine {
         }
       }
 
-      if (dist <= (g.kind === 'chest' ? 16 : 12)) {
+      if (dist <= (g.kind === 'chest' || g.kind === 'boss_chest' ? 18 : 12)) {
         this.gems.splice(i, 1);
         if (g.kind === 'heal') {
           p.hp = Math.min(p.maxHp, p.hp + g.value);
@@ -2102,6 +2369,10 @@ export class GameEngine {
           }
           this.showBanner('🧲 磁力爆发！吸取全场经验水晶', 1.8);
           sound.playObjectiveComplete();
+        } else if (g.kind === 'boss_chest') {
+          sound.playObjectiveComplete();
+          this.openBossRelicModal();
+          return;
         } else if (g.kind === 'chest') {
           sound.playLevelUp();
           this.openUpgradeModal('🏆 秘宝宝箱 · 选择一项强力赐福');
@@ -2125,6 +2396,103 @@ export class GameEngine {
         }
       }
     }
+  }
+
+  private openBossRelicModal(): void {
+    const p = this.player;
+    this.phase = 'levelup';
+    this.touchMoveX = 0;
+    this.touchMoveY = 0;
+    this.currentUpgradeTitle = '👑 首领圣遗物 · 选择一项规则改写神器';
+    this.currentRerollsLeft = 0;
+
+    const mythicPool: UpgradeChoice[] = [
+      {
+        id: 'mythic_blink_nova',
+        kind: 'relic',
+        title: '❄️ 闪现新星',
+        subtitle: '首领圣遗物 · 规则改写',
+        desc: p.blinkNova
+          ? '闪现冷却再 -15%，全局法术伤害 +25%'
+          : '每次闪现落地自动爆发强力霜冻新星，并缩短闪现冷却 25%！',
+        icon: '❄️',
+        rarity: 'legendary',
+        badge: '圣遗物',
+        accentColor: '#5cd6ff',
+        apply: () => {
+          if (!p.blinkNova) {
+            p.blinkNova = true;
+            p.dashMaxCooldown = Math.max(0.8, p.dashMaxCooldown * 0.75);
+          } else {
+            p.dashMaxCooldown = Math.max(0.7, p.dashMaxCooldown * 0.85);
+            p.damageMult += 0.25;
+          }
+        },
+      },
+      {
+        id: 'mythic_reaction',
+        kind: 'relic',
+        title: '⚡ 反应共鸣核心',
+        subtitle: '首领圣遗物 · 规则改写',
+        desc: p.reactionDouble
+          ? '所有法术伤害 +30%，暴击率 +10%'
+          : '所有元素反应（融化/超载/超导/魂爆）伤害直接翻倍（+100%）！',
+        icon: '⚡',
+        rarity: 'legendary',
+        badge: '圣遗物',
+        accentColor: '#ffbe33',
+        apply: () => {
+          if (!p.reactionDouble) {
+            p.reactionDouble = true;
+          } else {
+            p.damageMult += 0.3;
+            p.critChance = Math.min(0.85, p.critChance + 0.1);
+          }
+        },
+      },
+      {
+        id: 'mythic_crit_cd',
+        kind: 'relic',
+        title: '🌀 暴击涌流',
+        subtitle: '首领圣遗物 · 规则改写',
+        desc: p.critCdReset
+          ? '暴击率 +12%，冷却缩减 +12%'
+          : '暴击时有 22% 概率立即缩减所有法术 0.6 秒冷却，且暴击率 +8%！',
+        icon: '🌀',
+        rarity: 'legendary',
+        badge: '圣遗物',
+        accentColor: '#d966ff',
+        apply: () => {
+          if (!p.critCdReset) {
+            p.critCdReset = true;
+            p.critChance = Math.min(0.85, p.critChance + 0.08);
+          } else {
+            p.critChance = Math.min(0.85, p.critChance + 0.12);
+            p.cooldownMult = Math.max(0.4, p.cooldownMult * 0.88);
+          }
+        },
+      },
+      {
+        id: 'mythic_shield',
+        kind: 'relic',
+        title: '🛡️ 星界奥术护盾',
+        subtitle: '首领圣遗物 · 规则改写',
+        desc: '获得可再生奥术护盾（上限 +70，每 10 秒自动回复 35 点护盾）！',
+        icon: '🛡️',
+        rarity: 'legendary',
+        badge: '圣遗物',
+        accentColor: '#5cd6ff',
+        apply: () => {
+          p.shieldRegen = true;
+          p.maxShield += 70;
+          p.shield = p.maxShield;
+        },
+      },
+    ];
+
+    mythicPool.sort(() => Math.random() - 0.5);
+    this.pushHud();
+    this.onLevelUpChoices(mythicPool.slice(0, 3), this.currentUpgradeTitle, 0);
   }
 
   private openUpgradeModal(title: string): void {
@@ -2190,51 +2558,9 @@ export class GameEngine {
       }
     }
 
-    // 1.5 Legendary Spell Evolutions (超武进化)
+    // 1.5 Legendary Spell Evolutions (6 complete Super Weapons from evolutions.ts)
     const ownedIds = new Set(p.spells.map((s) => s.id));
-    const evolutions: {
-      base: SpellId;
-      partner: SpellId;
-      evolvedName: string;
-      icon: string;
-      desc: string;
-      color: string;
-    }[] = [
-      {
-        base: 'fireball',
-        partner: 'fire_tornado',
-        evolvedName: '炼狱火柱',
-        icon: '🌋',
-        desc: '【超武进化】炎爆火球命中时喷发巨型烈焰火柱，范围 +45%，伤害大幅暴涨！',
-        color: '#ff5722',
-      },
-      {
-        base: 'frost_nova',
-        partner: 'ice_lance',
-        evolvedName: '极寒冰域',
-        icon: '🌨️',
-        desc: '【超武进化】霜冻新星范围 +45%、伤害 +55%，并深度冻结周围所有敌人！',
-        color: '#5cd6ff',
-      },
-      {
-        base: 'lightning_strike',
-        partner: 'chain_lightning',
-        evolvedName: '雷神裁决',
-        icon: '⛈️',
-        desc: '【超武进化】落雷进化为震天雷鸣冲击，范围 +50%、伤害 +45%、瞬发落雷！',
-        color: '#ffe047',
-      },
-      {
-        base: 'arcane_orbit',
-        partner: 'arcane_beam',
-        evolvedName: '星界天坠',
-        icon: '🌠',
-        desc: '【超武进化】奥术星轨转速提升并定期召唤漫天星陨轰炸战场！',
-        color: '#e066ff',
-      },
-    ];
-
-    for (const evo of evolutions) {
+    for (const evo of EVOLUTION_RECIPES) {
       const sp = p.spells.find((s) => s.id === evo.base);
       if (sp && !sp.evolved && (sp.level >= 7 || (sp.level >= 5 && ownedIds.has(evo.partner)))) {
         pool.unshift({
@@ -2254,6 +2580,7 @@ export class GameEngine {
             sp.damageBonus += 0.45;
             sp.cooldownBonus += 0.12;
             sp.extraCount += 1;
+            this.unlockAchievement('first_evo');
             this.showBanner(`🌟 超武觉醒：${evo.evolvedName}！`, 3.0);
           },
         });
@@ -2527,17 +2854,7 @@ export class GameEngine {
   }
 
   private findNearestEnemy(x: number, y: number, maxDist: number, excludeId?: number): Enemy | null {
-    let best: Enemy | null = null;
-    let bestD = maxDist;
-    for (const e of this.enemies) {
-      if (e.dead || e.id === excludeId) continue;
-      const d = Math.hypot(e.x - x, e.y - y);
-      if (d < bestD) {
-        bestD = d;
-        best = e;
-      }
-    }
-    return best;
+    return this.grid.findNearest(x, y, maxDist, excludeId);
   }
 
   private spawnText(x: number, y: number, text: string, color: string, crit: boolean): void {
@@ -2625,6 +2942,26 @@ export class GameEngine {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(psx, psy, 15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Boss telegraphed red danger hazard circles
+    for (const h of this.bossHazards) {
+      const sx = h.x - cx;
+      const sy = h.y - cy;
+      const prog = 1 - Math.max(0, h.delay / h.maxDelay);
+      ctx.fillStyle = `rgba(255, 42, 68, ${(0.12 + prog * 0.25).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, h.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 84, 108, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy, h.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 224, 102, 0.85)';
+      ctx.beginPath();
+      ctx.arc(sx, sy, h.radius * prog, 0, Math.PI * 2);
       ctx.stroke();
     }
 
@@ -2755,6 +3092,67 @@ export class GameEngine {
       ctx.fillStyle = '#ffe866';
       ctx.fillRect(mx - 1, my - 1, 2, 2);
     }
+
+    // 12. Compact Pixel Minimap Radar (bottom-left above desktop margin / top-right corner)
+    if (this.phase === 'playing') {
+      this.renderMinimap(ctx);
+    }
+  }
+
+  private renderMinimap(ctx: CanvasRenderingContext2D): void {
+    const mw = 64;
+    const mh = 44;
+    const mx = VIEW_W - mw - 8;
+    const my = 48;
+    const range = 360; // world radius shown
+
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.65)';
+    ctx.fillRect(mx, my, mw, mh);
+    ctx.strokeStyle = 'rgba(126, 104, 214, 0.65)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
+
+    const cx = mx + mw / 2;
+    const cy = my + mh / 2;
+    const px = this.player.x;
+    const py = this.player.y;
+
+    const plot = (wx: number, wy: number, color: string, size: number) => {
+      const dx = ((wx - px) / range) * (mw / 2 - 3);
+      const dy = ((wy - py) / range) * (mh / 2 - 3);
+      const rx = Math.max(mx + 2, Math.min(mx + mw - 2 - size, Math.round(cx + dx)));
+      const ry = Math.max(my + 2, Math.min(my + mh - 2 - size, Math.round(cy + dy)));
+      ctx.fillStyle = color;
+      ctx.fillRect(rx, ry, size, size);
+    };
+
+    // Sample enemies
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (e.dead) continue;
+      if (e.isBoss) {
+        plot(e.x, e.y, '#ff3b5c', 3);
+      } else if (e.isElite) {
+        plot(e.x, e.y, '#ffae33', 2);
+      } else if ((i & 1) === 0) {
+        plot(e.x, e.y, 'rgba(180, 120, 255, 0.65)', 1);
+      }
+    }
+
+    // Map interactables
+    for (const prop of this.props) {
+      const c = prop.kind === 'shrine_frenzy' ? '#ffd147' : prop.kind === 'spring_heal' ? '#69ff94' : '#ff5722';
+      plot(prop.x, prop.y, c, 2);
+    }
+
+    // Objective
+    if (this.objective && this.objective.active) {
+      plot(this.objective.x, this.objective.y, '#ffe866', 3);
+    }
+
+    // Player center dot
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(cx) - 1, Math.round(cy) - 1, 2, 2);
   }
 
   private renderObjective(
@@ -2864,6 +3262,9 @@ export class GameEngine {
       phase: this.phase,
       hp: Math.ceil(p.hp),
       maxHp: Math.ceil(p.maxHp),
+      shield: Math.ceil(p.shield),
+      maxShield: Math.ceil(p.maxShield),
+      lowHp: p.hp > 0 && p.hp / Math.max(1, p.maxHp) <= 0.3,
       xp: p.xp,
       xpToNext: p.xpToNext,
       level: p.level,

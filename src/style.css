@@ -1118,3 +1118,159 @@ body.is-touch .touch-controls {
     height: 68px;
   }
 }
+
+/* ================= Landing / Home Page ================= */
+.home-panel {
+  max-width: 860px;
+}
+
+.github-promo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 18px;
+  margin: 0 auto 18px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(42, 33, 78, 0.95), rgba(24, 20, 46, 0.95));
+  border: 2px solid #7e68d6;
+  box-shadow: 0 6px 24px rgba(126, 104, 214, 0.25);
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.github-promo:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: 0 10px 30px rgba(255, 209, 71, 0.22);
+}
+
+.gh-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.gh-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.gh-repo {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.4px;
+}
+
+.gh-desc {
+  font-size: 12.5px;
+  color: #d6cff2;
+  margin-top: 2px;
+}
+
+.gh-cta {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  background: rgba(255, 209, 71, 0.16);
+  border: 1px solid rgba(255, 209, 71, 0.5);
+  color: var(--gold);
+}
+
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.feature-card {
+  background: rgba(24, 20, 44, 0.88);
+  border: 1px solid #3f3669;
+  border-radius: 10px;
+  padding: 13px 14px;
+}
+
+.feature-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.feature-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.feature-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.home-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.start-play-btn {
+  padding: 13px 44px;
+  border-radius: 12px;
+  border: 2px solid #ffe484;
+  background: linear-gradient(180deg, #ffd859 0%, #e69d19 100%);
+  color: #1a1104;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(255, 209, 71, 0.35);
+  transition: transform 0.12s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.start-play-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.08);
+  box-shadow: 0 12px 34px rgba(255, 209, 71, 0.5);
+}
+
+.start-play-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.small-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+@media (max-width: 680px) {
+  .github-promo {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .gh-cta {
+    text-align: center;
+  }
+
+  .home-features {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .start-play-btn {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+}

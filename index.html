@@ -89,8 +89,69 @@
           </div>
         </div>
 
+        <!-- Landing / Home Page Overlay -->
+        <div id="modal-home" class="overlay">
+          <div class="panel home-panel">
+            <div class="title-badge">OPEN SOURCE · PIXELFX POWERED</div>
+            <h1 class="game-title">像素法典：星界魔潮</h1>
+            <p class="game-subtitle">
+              纯代码程序化像素特效驱动的网页端类幸存者肉鸽动作游戏
+            </p>
+
+            <!-- GitHub Repository Promo Card -->
+            <a
+              class="github-promo"
+              href="https://github.com/Akiesmz/pixel-grimoire"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div class="gh-left">
+                <svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"
+                  />
+                </svg>
+                <div class="gh-info">
+                  <div class="gh-repo">Akiesmz / pixel-grimoire</div>
+                  <div class="gh-desc">项目已完全开源 · 零外部素材 · 支持单文件离线构建 · 欢迎点个 Star ⭐</div>
+                </div>
+              </div>
+              <span class="gh-cta">前往仓库 →</span>
+            </a>
+
+            <!-- Game Features Overview -->
+            <div class="home-features">
+              <div class="feature-card">
+                <div class="feature-icon">🔥</div>
+                <div class="feature-title">12 种像素法术</div>
+                <div class="feature-desc">火球、冰枪、霜冻新星、落雷、火焰龙卷、链式闪电、剧毒瘴云与奥术光束自由组合。</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">✨</div>
+                <div class="feature-title">元素附魔实时换色</div>
+                <div class="feature-desc">为法术注入烈焰、寒霜、雷霆或暗影，触发专属元素机制并实时重绘像素特效调色板。</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">🌟</div>
+                <div class="feature-title">永久天赋树与刷新</div>
+                <div class="feature-desc">战斗积累星尘永久强化 8 项属性并自动存档，升级选卡自带刷新次数，构筑更随心。</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">随机任务与双端畅玩</div>
+                <div class="feature-desc">法阵充能、裂隙净化、三阶段首领与无尽模式；同时支持电脑键鼠与手机透明轮盘。</div>
+              </div>
+            </div>
+
+            <div class="home-actions">
+              <button id="btn-enter-game" class="start-play-btn">⚔️ 开始游玩</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Wizard Select Overlay -->
-        <div id="modal-select" class="overlay">
+        <div id="modal-select" class="overlay hidden">
           <div class="panel select-panel">
             <div class="title-badge">PIXELFX POWERED · SURVIVORS-LIKE</div>
             <h1 class="game-title">像素法典：星界魔潮</h1>
@@ -99,6 +160,7 @@
             </p>
 
             <div class="select-meta-bar">
+              <button id="btn-back-home" class="secondary-btn small-btn">🏠 返回主页</button>
               <div class="dust-pill">✨ 星尘余额：<b id="select-dust">0</b></div>
               <button id="btn-open-talents" class="gold-btn">🌟 永久天赋树</button>
             </div>

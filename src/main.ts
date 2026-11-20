@@ -7,6 +7,7 @@ import type { UpgradeChoice, WizardId } from './types';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const hud = document.getElementById('hud')!;
+const modalHome = document.getElementById('modal-home')!;
 const modalSelect = document.getElementById('modal-select')!;
 const modalTalents = document.getElementById('modal-talents')!;
 const modalLevelup = document.getElementById('modal-levelup')!;
@@ -54,6 +55,8 @@ const btnOpenTalents = document.getElementById('btn-open-talents')!;
 const btnEndTalents = document.getElementById('btn-end-talents')!;
 const btnCloseTalents = document.getElementById('btn-close-talents')!;
 const btnResetTalents = document.getElementById('btn-reset-talents')!;
+const btnEnterGame = document.getElementById('btn-enter-game')!;
+const btnBackHome = document.getElementById('btn-back-home')!;
 
 const pauseStats = document.getElementById('pause-stats')!;
 const endTitle = document.getElementById('end-title')!;
@@ -67,6 +70,7 @@ const btnTouchDash = document.getElementById('btn-touch-dash') as HTMLButtonElem
 
 let currentWizardId: WizardId = 'pyro';
 let currentChoices: UpgradeChoice[] = [];
+let homeOpen = true;
 let talentsModalOpen = false;
 
 function formatTime(sec: number): string {
@@ -211,7 +215,8 @@ function renderHud(snap: HudSnapshot): void {
     resetJoystick();
   }
   selectDustEl.textContent = String(engine.getMetaSave().dust);
-  modalSelect.classList.toggle('hidden', snap.phase !== 'select' || talentsModalOpen);
+  modalHome.classList.toggle('hidden', snap.phase !== 'select' || !homeOpen || talentsModalOpen);
+  modalSelect.classList.toggle('hidden', snap.phase !== 'select' || homeOpen || talentsModalOpen);
   modalLevelup.classList.toggle('hidden', snap.phase !== 'levelup');
   modalPause.classList.toggle('hidden', snap.phase !== 'paused');
   modalEnd.classList.toggle('hidden', (snap.phase !== 'gameover' && snap.phase !== 'victory') || talentsModalOpen);
@@ -306,6 +311,14 @@ btnRestart.addEventListener('click', () => engine.startRun(currentWizardId));
 btnEndless.addEventListener('click', () => engine.continueEndless());
 btnEndSelect.addEventListener('click', () => engine.returnToSelect());
 btnReroll.addEventListener('click', () => engine.rerollUpgrades());
+btnEnterGame.addEventListener('click', () => {
+  homeOpen = false;
+  engine.pushHud();
+});
+btnBackHome.addEventListener('click', () => {
+  homeOpen = true;
+  engine.pushHud();
+});
 btnOpenTalents.addEventListener('click', openTalentsModal);
 btnEndTalents.addEventListener('click', openTalentsModal);
 btnCloseTalents.addEventListener('click', closeTalentsModal);

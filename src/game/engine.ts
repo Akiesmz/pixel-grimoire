@@ -732,15 +732,16 @@ export class GameEngine {
     }
 
     const levelFactor = Math.max(0, this.player.level - 1);
-    const maxEnemies = Math.min(115, 20 + Math.floor(t * 0.18) + levelFactor * 3);
+    const lateBonus = t > 180 ? Math.floor((t - 180) / 15) : 0;
+    const maxEnemies = Math.min(155, 20 + Math.floor(t * 0.2) + levelFactor * 3 + lateBonus);
     if (this.enemies.length >= maxEnemies) return;
 
-    const interval = Math.max(0.32, 1.25 - t * 0.0012 - levelFactor * 0.018);
+    const interval = Math.max(0.24, 1.25 - t * 0.0014 - levelFactor * 0.02);
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0) return;
     this.spawnTimer = interval;
 
-    const batchSize = 1 + Math.floor(t / 95) + Math.floor(levelFactor / 5);
+    const batchSize = 1 + Math.floor(t / 80) + Math.floor(levelFactor / 4);
     for (let i = 0; i < batchSize; i++) {
       this.spawnRegularEnemy(t);
     }
@@ -816,10 +817,12 @@ export class GameEngine {
     };
 
     const cfg = baseTable[kind];
-    const eliteMult = isElite && !isBoss ? 2.2 : 1;
+    const eliteMult = isElite && !isBoss ? 2.3 : 1;
     const lv = Math.max(1, this.player.level);
-    const levelHpBonus = (lv - 1) * 0.14 + Math.pow(Math.max(0, lv - 6), 1.2) * 0.03;
-    const combinedScale = 1 + (timeScale - 1) * 0.72 + levelHpBonus * 0.7;
+    const lateTimeBoost =
+      this.elapsed > 180 ? Math.pow((this.elapsed - 180) / 140, 1.35) * 1.15 : 0;
+    const levelHpBonus = (lv - 1) * 0.16 + Math.pow(Math.max(0, lv - 7), 1.35) * 0.06;
+    const combinedScale = 1 + (timeScale - 1) * 0.85 + levelHpBonus * 0.8 + lateTimeBoost;
     const maxHp = Math.round(cfg.hp * combinedScale * eliteMult);
 
     const enemy: Enemy = {
@@ -966,7 +969,7 @@ export class GameEngine {
     this.fx.spawnWorld('heal_aoe', this.player.x, this.player.y, { priority: 4 });
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + 20);
     this.addDust(20);
-    this.player.ultCharge = Math.min(100, this.player.ultCharge + 25);
+    this.player.ultCharge = Math.min(100, this.player.ultCharge + 12);
     this.flushRunDustToSave();
     sound.playObjectiveComplete();
 
@@ -1942,7 +1945,7 @@ export class GameEngine {
     this.metaSave.totalKills++;
     this.player.ultCharge = Math.min(
       100,
-      this.player.ultCharge + (e.isBoss ? 30 : e.isElite ? 12 : 3)
+      this.player.ultCharge + (e.isBoss ? 18 : e.isElite ? 5 : 1.1)
     );
 
     if (e.isBoss) {

@@ -35,6 +35,12 @@ import * as fxFireTornado from 'pixelfx/fx/fire/fire-tornado';
 import * as fxChainLightning from 'pixelfx/fx/lightning/chain-lightning';
 import * as fxPoisonCloud from 'pixelfx/fx/nature/poison-cloud';
 import * as fxArcaneBeam from 'pixelfx/fx/arcane/arcane-beam';
+import * as fxFlamePillar from 'pixelfx/fx/fire/flame-pillar';
+import * as fxThunderclap from 'pixelfx/fx/lightning/thunderclap';
+import * as fxStarFall from 'pixelfx/fx/arcane/star-fall';
+import * as fxTimeStop from 'pixelfx/fx/arcane/time-stop';
+import * as fxHealingBloom from 'pixelfx/fx/nature/healing-bloom';
+import * as fxBarrelExplosion from 'pixelfx/fx/explosions/barrel-explosion';
 
 import type { ElementType } from '../types';
 import { ELEMENT_INFO } from '../data/spells';
@@ -55,7 +61,13 @@ export type WorldFxKind =
   | 'big_explosion'
   | 'hit_spark'
   | 'crit_hit'
-  | 'poof';
+  | 'poof'
+  | 'flame_pillar'
+  | 'thunderclap'
+  | 'star_fall'
+  | 'time_stop'
+  | 'healing_bloom'
+  | 'barrel_explosion';
 
 export type StampFxBase =
   | 'fireball'
@@ -86,6 +98,12 @@ const WORLD_MODS: Record<WorldFxKind, FxModule> = {
   hit_spark: fxHitSpark,
   crit_hit: fxCritHit,
   poof: fxPoof,
+  flame_pillar: fxFlamePillar,
+  thunderclap: fxThunderclap,
+  star_fall: fxStarFall,
+  time_stop: fxTimeStop,
+  healing_bloom: fxHealingBloom,
+  barrel_explosion: fxBarrelExplosion,
 };
 
 const STAMP_MODS: Record<StampFxBase, FxModule> = {

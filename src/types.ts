@@ -62,6 +62,8 @@ export interface ActiveSpell {
   id: SpellId;
   level: number;
   element: ElementType;
+  evolved?: boolean;
+  evolvedName?: string;
   cooldownTimer: number;
   damageBonus: number;
   cooldownBonus: number;
@@ -102,6 +104,8 @@ export interface PlayerState {
   dashTimer: number;
   dashVx: number;
   dashVy: number;
+  ultCharge: number; // 0..100
+  frenzyTimer: number;
   animTime: number;
   spells: ActiveSpell[];
   relics: Record<string, number>;
@@ -141,6 +145,10 @@ export interface Enemy {
   poisonDps: number;
   slowTimer: number;
   stunTimer: number;
+  vulnerableTimer: number;
+  aura: ElementType;
+  auraTimer: number;
+  reactionCooldown: number;
   animTime: number;
   attackTimer: number;
   facing: number;
@@ -191,6 +199,7 @@ export interface GroundZone {
 
 export interface ActiveBeam {
   id: number;
+  spellId: SpellId;
   element: ElementType;
   angle: number;
   length: number;
@@ -203,7 +212,8 @@ export interface ActiveBeam {
 
 export interface DelayedStrike {
   id: number;
-  kind: 'meteor' | 'lightning' | 'smite';
+  kind: 'meteor' | 'lightning' | 'smite' | 'starfall';
+  sourceKey: string;
   element: ElementType;
   x: number;
   y: number;
@@ -211,6 +221,18 @@ export interface DelayedStrike {
   damage: number;
   delay: number;
   triggered: boolean;
+}
+
+export type MapPropKind = 'shrine_frenzy' | 'spring_heal' | 'barrel';
+
+export interface MapProp {
+  id: number;
+  kind: MapPropKind;
+  x: number;
+  y: number;
+  radius: number;
+  active: boolean;
+  bobPhase: number;
 }
 
 export interface Gem {

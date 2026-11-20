@@ -1274,3 +1274,110 @@ body.is-touch .touch-controls {
     font-size: 16px;
   }
 }
+
+/* ================= Ultimate Bar, Mobile Ult Button & Damage Panel ================= */
+.ult-bar {
+  height: 16px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.ult-fill {
+  width: 0%;
+  background: linear-gradient(90deg, #9b4dff, #ffbe33);
+}
+
+.ult-bar.ready {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(255, 209, 71, 0.65);
+}
+
+.touch-ult-btn {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right, 24px));
+  bottom: max(120px, calc(env(safe-area-inset-bottom, 24px) + 96px));
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 71, 0.35) 0%, rgba(168, 77, 255, 0.42) 100%);
+  border: 2px solid rgba(255, 224, 102, 0.85);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: auto;
+  touch-action: none;
+  backdrop-filter: blur(2px);
+  box-shadow: 0 0 16px rgba(255, 209, 71, 0.45);
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+.touch-ult-btn:active {
+  transform: scale(0.92);
+}
+
+.touch-ult-btn.cooling {
+  opacity: 0.35;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.spell-slot.evolved {
+  box-shadow: 0 0 14px rgba(255, 209, 71, 0.7), inset 0 0 8px rgba(255, 209, 71, 0.28);
+  border-color: var(--gold) !important;
+}
+
+.damage-panel {
+  margin-bottom: 16px;
+  text-align: left;
+  background: rgba(16, 13, 30, 0.88);
+  border: 1px solid #3c3363;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.damage-panel-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.dmg-row {
+  margin-bottom: 7px;
+}
+
+.dmg-row:last-child {
+  margin-bottom: 0;
+}
+
+.dmg-row-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  margin-bottom: 3px;
+}
+
+.dmg-name {
+  color: #f0edff;
+  font-weight: 700;
+}
+
+.dmg-nums {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dmg-track {
+  height: 6px;
+  background: #1d1833;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dmg-fill {
+  height: 100%;
+  border-radius: 4px;
+}

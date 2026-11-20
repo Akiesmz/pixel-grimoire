@@ -32,6 +32,10 @@
                 <div id="dash-bar-fill" class="stat-bar-fill dash-fill"></div>
                 <span class="stat-bar-text">闪现 [Space]</span>
               </div>
+              <div id="ult-bar-wrap" class="stat-bar ult-bar" title="按 Q 键或点击释放终极技">
+                <div id="ult-bar-fill" class="stat-bar-fill ult-fill"></div>
+                <span id="hud-ult-text" class="stat-bar-text">终极技 [Q] 0%</span>
+              </div>
               <div class="hud-controls">
                 <button id="btn-aim" class="mini-btn" title="切换瞄准模式 (M)">✨ 自动瞄准</button>
                 <button id="btn-mute" class="mini-btn" title="开关音效">🔊 音效</button>
@@ -82,6 +86,10 @@
                 <div id="joystick-knob" class="joystick-knob"></div>
               </div>
             </div>
+            <button id="btn-touch-ult" class="touch-ult-btn cooling" type="button" aria-label="终极技">
+              <span class="touch-dash-icon">🌟</span>
+              <span id="touch-ult-label" class="touch-dash-label">0%</span>
+            </button>
             <button id="btn-touch-dash" class="touch-dash-btn" type="button" aria-label="闪现">
               <span class="touch-dash-icon">⚡</span>
               <span class="touch-dash-label">闪现</span>
@@ -170,6 +178,7 @@
             <div class="controls-hint">
               <span><b>WASD / 方向键</b> 移动</span>
               <span><b>Space / Shift</b> 闪现无敌</span>
+              <span><b>Q</b> 终极技</span>
               <span><b>M</b> 自动/手动瞄准</span>
               <span><b>1 / 2 / 3</b> 升级速选</span>
               <span><b>R</b> 刷新选卡</span>
@@ -213,6 +222,7 @@
           <div class="panel compact-panel">
             <h2 class="modal-title">⏸ 游戏已暂停</h2>
             <div id="pause-stats" class="stats-grid"></div>
+            <div id="pause-damage" class="damage-panel"></div>
             <div class="modal-actions">
               <button id="btn-resume" class="primary-btn">继续战斗</button>
               <button id="btn-quit" class="secondary-btn">返回选人</button>
@@ -226,6 +236,7 @@
             <h2 id="end-title" class="modal-title">战败</h2>
             <p id="end-subtitle" class="end-subtitle"></p>
             <div id="end-stats" class="stats-grid"></div>
+            <div id="end-damage" class="damage-panel"></div>
             <div class="modal-actions">
               <button id="btn-endless" class="gold-btn hidden">♾️ 继续无尽模式</button>
               <button id="btn-end-talents" class="gold-btn">🌟 永久天赋树</button>

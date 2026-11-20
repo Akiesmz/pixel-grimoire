@@ -27,6 +27,9 @@ const hudLevel = document.getElementById('hud-level')!;
 const hpBarFill = document.getElementById('hp-bar-fill')!;
 const hudHpText = document.getElementById('hud-hp-text')!;
 const dashBarFill = document.getElementById('dash-bar-fill')!;
+const ultBarWrap = document.getElementById('ult-bar-wrap')!;
+const ultBarFill = document.getElementById('ult-bar-fill')!;
+const hudUltText = document.getElementById('hud-ult-text')!;
 const hudTimer = document.getElementById('hud-timer')!;
 const hudWave = document.getElementById('hud-wave')!;
 const hudKills = document.getElementById('hud-kills')!;
@@ -59,14 +62,18 @@ const btnEnterGame = document.getElementById('btn-enter-game')!;
 const btnBackHome = document.getElementById('btn-back-home')!;
 
 const pauseStats = document.getElementById('pause-stats')!;
+const pauseDamage = document.getElementById('pause-damage')!;
 const endTitle = document.getElementById('end-title')!;
 const endSubtitle = document.getElementById('end-subtitle')!;
 const endStats = document.getElementById('end-stats')!;
+const endDamage = document.getElementById('end-damage')!;
 
 const joystickZone = document.getElementById('joystick-zone')!;
 const joystickBase = document.getElementById('joystick-base')!;
 const joystickKnob = document.getElementById('joystick-knob')!;
 const btnTouchDash = document.getElementById('btn-touch-dash') as HTMLButtonElement;
+const btnTouchUlt = document.getElementById('btn-touch-ult') as HTMLButtonElement;
+const touchUltLabel = document.getElementById('touch-ult-label')!;
 
 let currentWizardId: WizardId = 'pyro';
 let currentChoices: UpgradeChoice[] = [];
@@ -210,6 +217,31 @@ function renderStatsGrid(target: HTMLElement, snap: HudSnapshot): void {
   `;
 }
 
+function renderDamagePanel(target: HTMLElement, snap: HudSnapshot): void {
+  if (!snap.damageBreakdown.length) {
+    target.classList.add('hidden');
+    return;
+  }
+  target.classList.remove('hidden');
+  target.innerHTML =
+    `<div class="damage-panel-title">📊 伤害与 DPS 占比统计</div>` +
+    snap.damageBreakdown
+      .map(
+        (item) => `
+      <div class="dmg-row">
+        <div class="dmg-row-head">
+          <span class="dmg-name">${item.icon} ${item.name}</span>
+          <span class="dmg-nums">${item.damage.toLocaleString()} (${item.dps}/s · ${item.pct}%)</span>
+        </div>
+        <div class="dmg-track">
+          <div class="dmg-fill" style="width:${Math.max(2, item.pct)}%; background:${item.color}"></div>
+        </div>
+      </div>
+    `
+      )
+      .join('');
+}
+
 function renderHud(snap: HudSnapshot): void {
   if (snap.phase !== 'playing' && joystickTouchId !== null) {
     resetJoystick();
@@ -234,6 +266,15 @@ function renderHud(snap: HudSnapshot): void {
 
   dashBarFill.style.width = `${(snap.dashReadyRatio * 100).toFixed(0)}%`;
   btnTouchDash.classList.toggle('cooling', snap.dashReadyRatio < 1);
+
+  ultBarFill.style.width = `${snap.ultCharge}%`;
+  const ultReady = snap.ultCharge >= 100;
+  ultBarWrap.classList.toggle('ready', ultReady);
+  hudUltText.textContent = ultReady
+    ? `🌟 ${snap.ultName} [Q] 就绪!`
+    : `终极技 [Q] ${snap.ultCharge}%`;
+  btnTouchUlt.classList.toggle('cooling', !ultReady);
+  touchUltLabel.textContent = ultReady ? '大招!' : `${snap.ultCharge}%`;
 
   hudTimer.textContent = formatTime(snap.elapsed);
   hudWave.textContent = snap.endless ? `无尽 波次 ${snap.wave}` : `波次 ${snap.wave}`;
@@ -274,13 +315,14 @@ function renderHud(snap: HudSnapshot): void {
     if (s) {
       const def = SPELL_MAP[s.id];
       const elColor = s.element !== 'none' ? ELEMENT_INFO[s.element].color : def.baseColor;
-      slot.className = 'spell-slot';
+      slot.className = s.evolved ? 'spell-slot evolved' : 'spell-slot';
       slot.style.borderColor = elColor;
-      slot.title = `${def.name} Lv.${s.level}${s.element !== 'none' ? ` · ${ELEMENT_INFO[s.element].short}` : ''}`;
+      const dispName = s.evolved && s.evolvedName ? `🌟 ${s.evolvedName}` : def.name;
+      slot.title = `${dispName} Lv.${s.level}${s.element !== 'none' ? ` · ${ELEMENT_INFO[s.element].short}` : ''}`;
       slot.innerHTML = `
         <span>${def.icon}</span>
         <span class="spell-el-dot" style="background:${elColor}"></span>
-        <span class="spell-lv">Lv.${s.level}</span>
+        <span class="spell-lv">${s.evolved ? 'MAX' : `Lv.${s.level}`}</span>
       `;
     } else {
       slot.className = 'spell-slot empty';
@@ -291,6 +333,7 @@ function renderHud(snap: HudSnapshot): void {
 
   if (snap.phase === 'paused') {
     renderStatsGrid(pauseStats, snap);
+    renderDamagePanel(pauseDamage, snap);
   } else if (snap.phase === 'gameover' || snap.phase === 'victory') {
     const isWin = snap.phase === 'victory';
     endTitle.textContent = isWin ? '🏆 凯旋！击败虚空大君' : '💀 巫师陨落';
@@ -299,6 +342,7 @@ function renderHud(snap: HudSnapshot): void {
       : `本局获得 ✨ ${snap.runDust} 星尘，可前往永久天赋树强化后再战！`;
     btnEndless.classList.toggle('hidden', !isWin);
     renderStatsGrid(endStats, snap);
+    renderDamagePanel(endDamage, snap);
   }
 }
 
@@ -436,4 +480,21 @@ btnTouchDash.addEventListener(
 
 btnTouchDash.addEventListener('click', () => {
   engine.triggerDash();
+});
+
+ultBarWrap.addEventListener('click', () => {
+  engine.triggerUltimate();
+});
+
+btnTouchUlt.addEventListener(
+  'touchstart',
+  (e) => {
+    e.preventDefault();
+    engine.triggerUltimate();
+  },
+  { passive: false }
+);
+
+btnTouchUlt.addEventListener('click', () => {
+  engine.triggerUltimate();
 });

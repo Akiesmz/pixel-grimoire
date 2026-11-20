@@ -347,3 +347,68 @@ export function drawGem(
     }
   }
 }
+
+import type { MapProp } from '../types';
+
+export function drawMapProp(
+  ctx: CanvasRenderingContext2D,
+  prop: MapProp,
+  sx: number,
+  sy: number,
+  time: number
+): void {
+  const px = Math.round(sx);
+  const py = Math.round(sy);
+  const pulse = 0.55 + 0.45 * Math.sin(time * 5 + prop.bobPhase);
+
+  // Subtle floor ring
+  ctx.strokeStyle =
+    prop.kind === 'shrine_frenzy'
+      ? `rgba(255, 209, 71, ${(0.35 + pulse * 0.45).toFixed(2)})`
+      : prop.kind === 'spring_heal'
+        ? `rgba(105, 255, 148, ${(0.35 + pulse * 0.45).toFixed(2)})`
+        : `rgba(255, 92, 58, ${(0.3 + pulse * 0.4).toFixed(2)})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(px, py + 4, prop.radius * 0.72, prop.radius * 0.42, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  if (prop.kind === 'shrine_frenzy') {
+    // Golden arcane obelisk shrine
+    ctx.fillStyle = '#09080f';
+    ctx.fillRect(px - 6, py - 15, 12, 20);
+    ctx.fillStyle = '#3d335c';
+    ctx.fillRect(px - 5, py - 14, 10, 18);
+    ctx.fillStyle = '#ffd147';
+    ctx.fillRect(px - 2, py - 12, 4, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(px - 1, py - 10 + Math.round(Math.sin(time * 6) * 1), 2, 3);
+  } else if (prop.kind === 'spring_heal') {
+    // Glowing emerald healing fountain
+    ctx.fillStyle = '#09080f';
+    ctx.fillRect(px - 8, py - 5, 16, 11);
+    ctx.fillStyle = '#255c47';
+    ctx.fillRect(px - 7, py - 4, 14, 9);
+    ctx.fillStyle = '#69ff94';
+    ctx.fillRect(px - 5, py - 2, 10, 5);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(px - 1, py - 3, 2, 5);
+    ctx.fillRect(px - 3, py - 1, 6, 2);
+  } else {
+    // Red explosive barrel
+    ctx.fillStyle = '#09080f';
+    ctx.fillRect(px - 6, py - 8, 12, 14);
+    ctx.fillStyle = '#a82323';
+    ctx.fillRect(px - 5, py - 7, 10, 12);
+    ctx.fillStyle = '#40394a';
+    ctx.fillRect(px - 5, py - 4, 10, 2);
+    ctx.fillRect(px - 5, py + 1, 10, 2);
+    ctx.fillStyle = '#ff9933';
+    ctx.fillRect(px - 2, py - 2, 4, 3);
+    // Fuse spark
+    if (Math.floor(time * 10) % 2 === 0) {
+      ctx.fillStyle = '#ffe866';
+      ctx.fillRect(px - 1, py - 10, 2, 2);
+    }
+  }
+}
